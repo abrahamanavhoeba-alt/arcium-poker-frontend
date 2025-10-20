@@ -26,10 +26,10 @@ export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'
 
 /**
  * RPC endpoint for Solana connection
- * Using Ankr for better reliability and uptime
+ * Using official Solana devnet (confirmed working)
  */
 export const RPC_ENDPOINT = 
-  process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://rpc.ankr.com/solana_devnet';
+  process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://api.devnet.solana.com';
 
 /**
  * WebSocket endpoint for real-time updates

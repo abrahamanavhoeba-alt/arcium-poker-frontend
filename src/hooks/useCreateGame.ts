@@ -55,7 +55,7 @@ export function useCreateGame() {
         { 
           commitment: 'confirmed',
           preflightCommitment: 'confirmed',
-          skipPreflight: false
+          skipPreflight: true  // Skip preflight to avoid blockhash expiration
         }
       );
 
