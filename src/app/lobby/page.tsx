@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import GameList from '@/components/lobby/GameList';
 import CreateGameModal from '@/components/lobby/CreateGameModal';
+import WalletInfo from '@/components/wallet/WalletInfo';
 
 export default function LobbyPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -25,8 +26,18 @@ export default function LobbyPage() {
           </button>
         </div>
 
-        {/* Game List */}
-        <GameList />
+        {/* Layout */}
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Game List */}
+          <div className="lg:col-span-2">
+            <GameList />
+          </div>
+
+          {/* Sidebar */}
+          <div>
+            <WalletInfo />
+          </div>
+        </div>
       </div>
 
       {/* Create Game Modal */}
