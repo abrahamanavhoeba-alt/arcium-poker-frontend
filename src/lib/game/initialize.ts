@@ -63,47 +63,62 @@ export class GameInitializer {
 
       // Get program instance
       const program = ProgramClient.getProgram();
-      const authority = provider.wallet.publicKey;
+      console.log('✅ Program instance obtained:', program.programId.toBase58());
 
-      // Convert parameters
-      const gameId = ensureBN(params.gameId);
-      const smallBlind = params.smallBlind ? ensureBN(params.smallBlind) : null;
-      const bigBlind = params.bigBlind ? ensureBN(params.bigBlind) : null;
-      const minBuyIn = params.minBuyIn ? ensureBN(params.minBuyIn) : null;
-      const maxBuyIn = params.maxBuyIn ? ensureBN(params.maxBuyIn) : null;
-      const maxPlayers = params.maxPlayers ?? null;
-
+      console.log('🔵 Step 2: Deriving game PDA...');
       // Derive game PDA
-      const [gamePDA, bump] = ProgramClient.deriveGamePDA(authority, gameId);
+      const [gamePDA, bump] = ProgramClient.deriveGamePDA(provider.wallet.publicKey, ensureBN(params.gameId));
+      console.log('✅ Game PDA derived:', gamePDA.toBase58());
 
-      // Build and send transaction
-      const tx = await program.methods
+      console.log('🔵 Step 3: Preparing transaction...');
+      console.log('Game parameters:', {
+        gameId: params.gameId.toString(),
+        gamePDA: gamePDA.toBase58(),
+        authority: provider.wallet.publicKey.toBase58(),
+        smallBlind: params.smallBlind?.toString() || 'null',
+        bigBlind: params.bigBlind?.toString() || 'null',
+        minBuyIn: params.minBuyIn?.toString() || 'null',
+        maxBuyIn: params.maxBuyIn?.toString() || 'null',
+        maxPlayers: params.maxPlayers,
+      });
+
+      console.log('🔵 Step 4: Building transaction...');
+      // Call initialize_game instruction
+      const txBuilder = program.methods
         .initializeGame(
-          gameId,
-          smallBlind,
-          bigBlind,
-          minBuyIn,
-          maxBuyIn,
-          maxPlayers
+          ensureBN(params.gameId),
+          params.smallBlind ? ensureBN(params.smallBlind) : null,
+          params.bigBlind ? ensureBN(params.bigBlind) : null,
+          params.minBuyIn ? ensureBN(params.minBuyIn) : null,
+          params.maxBuyIn ? ensureBN(params.maxBuyIn) : null,
+          params.maxPlayers ?? null
         )
         .accounts({
           game: gamePDA,
-          authority: authority,
+          authority: provider.wallet.publicKey,
           systemProgram: SystemProgram.programId,
-        })
-        .rpc();
+        });
+      
+      console.log('✅ Transaction builder created');
+      
+      console.log('🔵 Step 5: Sending transaction to RPC...');
+      const tx = await txBuilder.rpc();
 
+      console.log('🔵 Step 6: Confirming transaction...');
       // Confirm transaction
       await RPCClient.confirmTransaction(tx);
+      console.log('✅ Transaction confirmed');
 
+      console.log('🔵 Step 7: Fetching created game account...');
       // Fetch created game account
       const game = await ProgramClient.fetchGame(gamePDA);
+      console.log('✅ Game account fetched');
 
       return {
         signature: tx,
         success: true,
         gamePDA,
-        gameId,
+        gameId: ensureBN(params.gameId),
         game,
       };
     } catch (error: any) {

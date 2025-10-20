@@ -29,18 +29,30 @@ export function useCreateGame() {
       setLoading(true);
       setError(null);
 
-      console.log('Creating game with params:', params);
+      console.log('🎮 ========== CREATE GAME START ==========');
+      console.log('📝 Input params:', params);
+      console.log('👛 Wallet:', wallet.publicKey?.toBase58());
+      console.log('🌐 Connection endpoint:', connection.rpcEndpoint);
 
       // Generate random game ID
       const gameId = new BN(Math.floor(Math.random() * 1000000));
+      console.log('🎲 Generated game ID:', gameId.toString());
 
       // Convert to lamports (SOL to lamports)
       const smallBlindLamports = new BN(params.smallBlind * 1_000_000_000);
       const bigBlindLamports = new BN(params.bigBlind * 1_000_000_000);
       const minBuyInLamports = new BN(params.minBuyIn * 1_000_000_000);
       const maxBuyInLamports = new BN(params.maxBuyIn * 1_000_000_000);
+      
+      console.log('💰 Converted to lamports:', {
+        smallBlind: smallBlindLamports.toString(),
+        bigBlind: bigBlindLamports.toString(),
+        minBuyIn: minBuyInLamports.toString(),
+        maxBuyIn: maxBuyInLamports.toString(),
+      });
 
       // Create Anchor provider
+      console.log('🔧 Creating Anchor provider...');
       const { AnchorProvider } = await import('@coral-xyz/anchor');
       
       const anchorWallet = {
@@ -58,12 +70,16 @@ export function useCreateGame() {
           skipPreflight: true  // Skip preflight to avoid blockhash expiration
         }
       );
+      console.log('✅ Provider created');
 
       // Initialize program client first
+      console.log('📦 Initializing program client...');
       const { ProgramClient } = await import('@/lib/connection/program');
       ProgramClient.initialize(provider);
+      console.log('✅ Program client initialized');
 
       // Initialize game
+      console.log('🚀 Calling GameInitializer.initializeGame...');
       const result = await GameInitializer.initializeGame(
         {
           gameId,
@@ -76,7 +92,8 @@ export function useCreateGame() {
         provider as any
       );
 
-      console.log('Game created successfully:', result);
+      console.log('✅ ========== CREATE GAME SUCCESS ==========');
+      console.log('📊 Result:', result);
 
       return result;
     } catch (err: any) {

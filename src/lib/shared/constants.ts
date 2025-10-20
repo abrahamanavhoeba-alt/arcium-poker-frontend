@@ -26,10 +26,10 @@ export const SOLANA_NETWORK = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet'
 
 /**
  * RPC endpoint for Solana connection
- * Using official Solana devnet (confirmed working)
+ * Using Helius for better reliability and faster blockhash updates
  */
 export const RPC_ENDPOINT = 
-  process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://api.devnet.solana.com';
+  process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://devnet.helius-rpc.com/?api-key=ca217878-e9d4-46ab-ba1d-fb283a0a0fc9';
 
 /**
  * WebSocket endpoint for real-time updates
