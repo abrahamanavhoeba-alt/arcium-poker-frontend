@@ -20,13 +20,13 @@ export default function Hero() {
         
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <button className="px-8 py-4 bg-[#00ff88] text-black font-bold text-lg rounded-lg hover:bg-[#00dd77] transition-colors w-full sm:w-auto">
-            Create coin
-          </button>
+          <a href="/lobby" className="px-8 py-4 bg-[#00ff88] text-black font-bold text-lg rounded-lg hover:bg-[#00dd77] transition-colors w-full sm:w-auto text-center">
+            Play Now
+          </a>
           
-          <button className="px-8 py-4 bg-transparent border border-gray-700 text-white font-bold text-lg rounded-lg hover:border-[#00ff88] transition-colors w-full sm:w-auto">
-            Log in
-          </button>
+          <a href="#how-it-works" className="px-8 py-4 bg-transparent border border-gray-700 text-white font-bold text-lg rounded-lg hover:border-[#00ff88] transition-colors w-full sm:w-auto text-center">
+            Learn More
+          </a>
         </div>
         
         {/* Live stats */}
