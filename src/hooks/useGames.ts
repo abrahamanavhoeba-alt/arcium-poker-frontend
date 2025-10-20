@@ -39,6 +39,18 @@ export function useGames() {
       setLoading(true);
       setError(null);
 
+      // Initialize program client if wallet is connected
+      if (wallet.publicKey && wallet.signTransaction) {
+        const { ProgramClient } = await import('@/lib/connection/program');
+        const provider = {
+          connection,
+          publicKey: wallet.publicKey,
+          signTransaction: wallet.signTransaction,
+          signAllTransactions: wallet.signAllTransactions,
+        };
+        ProgramClient.initialize(provider as any);
+      }
+
       // Get all game accounts
       const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
         filters: [

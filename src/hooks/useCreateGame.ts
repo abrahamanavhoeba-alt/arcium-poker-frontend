@@ -48,6 +48,10 @@ export function useCreateGame() {
         signAllTransactions: wallet.signAllTransactions,
       };
 
+      // Initialize program client first
+      const { ProgramClient } = await import('@/lib/connection/program');
+      ProgramClient.initialize(provider as any);
+
       // Initialize game
       const result = await GameInitializer.initializeGame(
         {
