@@ -33,6 +33,8 @@ export function useCreateGame() {
       console.log('📝 Input params:', params);
       console.log('👛 Wallet:', wallet.publicKey?.toBase58());
       console.log('🌐 Connection endpoint:', connection.rpcEndpoint);
+      console.log('🔑 Wallet adapter:', wallet.wallet?.adapter?.name || 'Unknown');
+      console.log('🔑 Wallet adapter constructor:', wallet.wallet?.adapter?.constructor?.name || 'Unknown');
 
       // Generate random game ID
       const gameId = new BN(Math.floor(Math.random() * 1000000));
