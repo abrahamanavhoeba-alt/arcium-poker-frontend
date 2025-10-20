@@ -39,65 +39,39 @@ export function useGames() {
       setLoading(true);
       setError(null);
 
-      // Initialize program client if wallet is connected
-      if (wallet.publicKey && wallet.signTransaction) {
-        const { AnchorProvider } = await import('@coral-xyz/anchor');
-        const { ProgramClient } = await import('@/lib/connection/program');
+      // Create a minimal provider for read-only access
+      const provider = new AnchorProvider(
+        connection,
+        {} as any,
+        { commitment: 'confirmed' }
+      );
+
+      // Create program instance
+      const program = new Program(idl as any, provider);
+
+      // Fetch all game accounts using Anchor's built-in method
+      const gameAccounts = await program.account.game.all();
+      
+      console.log(`Found ${gameAccounts.length} game accounts`);
+
+      const gameInfos: GameInfo[] = gameAccounts.map((gameAccount: any) => {
+        const game = gameAccount.account;
         
-        const anchorWallet = {
-          publicKey: wallet.publicKey,
-          signTransaction: wallet.signTransaction,
-          signAllTransactions: wallet.signAllTransactions!,
+        return {
+          publicKey: gameAccount.publicKey,
+          authority: game.authority,
+          gameId: game.gameId?.toString() || '0',
+          stage: game.stage ? JSON.stringify(game.stage) : 'Waiting',
+          smallBlind: game.smallBlind?.toNumber() / 1e9 || 0,
+          bigBlind: game.bigBlind?.toNumber() / 1e9 || 0,
+          minBuyIn: game.minBuyIn?.toNumber() / 1e9 || 0,
+          maxBuyIn: game.maxBuyIn?.toNumber() / 1e9 || 0,
+          maxPlayers: game.maxPlayers || 6,
+          playerCount: game.playerCount || 0,
+          pot: game.pot?.toNumber() / 1e9 || 0,
+          startedAt: game.startedAt?.toNumber() || Date.now() / 1000,
         };
-        
-        const provider = new AnchorProvider(
-          connection,
-          anchorWallet as any,
-          { commitment: 'confirmed' }
-        );
-        
-        ProgramClient.initialize(provider);
-      }
-
-      // Get all game accounts
-      const accounts = await connection.getProgramAccounts(PROGRAM_ID, {
-        filters: [
-          {
-            dataSize: 1000, // Approximate size of Game account
-          },
-        ],
       });
-
-      console.log(`Found ${accounts.length} game accounts`);
-
-      const gameInfos: GameInfo[] = [];
-
-      for (const account of accounts) {
-        try {
-          // Decode account data
-          const gameData = account.account.data;
-          
-          // Parse game data (simplified - you'll need proper deserialization)
-          const gameInfo: GameInfo = {
-            publicKey: account.pubkey,
-            authority: account.account.owner,
-            gameId: account.pubkey.toBase58().slice(0, 8),
-            stage: 'Waiting', // Parse from data
-            smallBlind: 0.01, // Parse from data
-            bigBlind: 0.02, // Parse from data
-            minBuyIn: 1, // Parse from data
-            maxBuyIn: 100, // Parse from data
-            maxPlayers: 6, // Parse from data
-            playerCount: 0, // Parse from data
-            pot: 0, // Parse from data
-            startedAt: Date.now(),
-          };
-
-          gameInfos.push(gameInfo);
-        } catch (err) {
-          console.error('Error parsing game account:', err);
-        }
-      }
 
       setGames(gameInfos);
     } catch (err) {

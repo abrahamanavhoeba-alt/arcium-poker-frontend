@@ -35,6 +35,9 @@ export function useCreateGame() {
       console.log('🌐 Connection endpoint:', connection.rpcEndpoint);
       console.log('🔑 Wallet adapter:', wallet.wallet?.adapter?.name || 'Unknown');
       console.log('🔑 Wallet adapter constructor:', wallet.wallet?.adapter?.constructor?.name || 'Unknown');
+      
+      // Use the existing connection from the wallet context
+      console.log('🔗 Using wallet context connection for consistency');
 
       // Generate random game ID
       const gameId = new BN(Math.floor(Math.random() * 1000000));
@@ -53,6 +56,20 @@ export function useCreateGame() {
         maxBuyIn: maxBuyInLamports.toString(),
       });
 
+      // Check wallet balance
+      console.log('💰 Checking wallet balance...');
+      const balance = await connection.getBalance(wallet.publicKey);
+      console.log('💰 Wallet balance:', (balance / 1_000_000_000).toFixed(4), 'SOL');
+      
+      if (balance < 10_000_000) { // Less than 0.01 SOL
+        throw new Error(`Insufficient balance. You have ${(balance / 1_000_000_000).toFixed(4)} SOL. Please get some devnet SOL from https://faucet.solana.com`);
+      }
+
+      // Pre-warm the connection by getting a fresh blockhash
+      console.log('🔥 Pre-warming connection...');
+      const warmupBlockhash = await connection.getLatestBlockhash('confirmed');
+      console.log('✅ Connection warmed up, blockhash:', warmupBlockhash.blockhash.slice(0, 8) + '...');
+
       // Create Anchor provider
       console.log('🔧 Creating Anchor provider...');
       const { AnchorProvider } = await import('@coral-xyz/anchor');
@@ -69,10 +86,10 @@ export function useCreateGame() {
         { 
           commitment: 'confirmed',
           preflightCommitment: 'confirmed',
-          skipPreflight: true  // Skip preflight to avoid blockhash expiration
+          skipPreflight: false,  // Let Anchor handle preflight
         }
       );
-      console.log('✅ Provider created');
+      console.log('✅ Provider created with wallet connection');
 
       // Initialize program client first
       console.log('📦 Initializing program client...');
@@ -80,8 +97,9 @@ export function useCreateGame() {
       ProgramClient.initialize(provider);
       console.log('✅ Program client initialized');
 
-      // Initialize game
-      console.log('🚀 Calling GameInitializer.initializeGame...');
+      // Initialize game - Use standard Anchor method (simpler, lets wallet/Anchor handle blockhash)
+      console.log('🚀 Using standard Anchor method (letting Anchor handle transaction details)...');
+      const { GameInitializer } = await import('@/lib/game/initialize');
       const result = await GameInitializer.initializeGame(
         {
           gameId,
@@ -94,8 +112,14 @@ export function useCreateGame() {
         provider as any
       );
 
+      if (!result.success) {
+        throw new Error(result.error?.message || 'Failed to create game');
+      }
+
       console.log('✅ ========== CREATE GAME SUCCESS ==========');
       console.log('📊 Result:', result);
+      console.log('🎯 Game PDA:', result.gamePDA?.toBase58());
+      console.log('🔗 Explorer:', `https://explorer.solana.com/tx/${result.signature}?cluster=devnet`);
 
       return result;
     } catch (err: any) {

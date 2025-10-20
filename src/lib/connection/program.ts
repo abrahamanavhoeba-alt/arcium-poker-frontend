@@ -34,12 +34,21 @@ export class ProgramClient {
    */
   static initialize(provider: AnchorProvider): ArciumPokerProgram {
     if (!programInstance) {
-      // Create program with IDL and provider
-      // The program ID is taken from the IDL's address field
+      // In Anchor 0.32+, Program constructor is: new Program(idl, provider)
+      // The program ID is read from idl.address field
+      // We need to ensure the IDL is properly structured
+      const programId = new PublicKey(idl.address);
+      
       programInstance = new Program(
         idl as any,
         provider
       );
+      
+      console.log('🔍 Program initialized');
+      console.log('🔍 Program ID from IDL:', programId.toBase58());
+      console.log('🔍 Program ID matches:', programId.equals(PROGRAM_ID));
+      console.log('🔍 Methods available:', Object.keys(programInstance.methods));
+      console.log('🔍 programInstance.programId:', programInstance.programId.toBase58());
     }
     return programInstance;
   }

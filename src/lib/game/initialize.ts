@@ -64,16 +64,11 @@ export class GameInitializer {
       // Get program instance
       const program = ProgramClient.getProgram();
       console.log('✅ Program instance obtained:', program.programId.toBase58());
+      console.log('🔍 Available methods:', Object.keys(program.methods));
 
-      console.log('🔵 Step 2: Deriving game PDA...');
-      // Derive game PDA
-      const [gamePDA, bump] = ProgramClient.deriveGamePDA(provider.wallet.publicKey, ensureBN(params.gameId));
-      console.log('✅ Game PDA derived:', gamePDA.toBase58());
-
-      console.log('🔵 Step 3: Preparing transaction...');
+      console.log('🔵 Step 2: Preparing transaction...');
       console.log('Game parameters:', {
         gameId: params.gameId.toString(),
-        gamePDA: gamePDA.toBase58(),
         authority: provider.wallet.publicKey.toBase58(),
         smallBlind: params.smallBlind?.toString() || 'null',
         bigBlind: params.bigBlind?.toString() || 'null',
@@ -82,8 +77,24 @@ export class GameInitializer {
         maxPlayers: params.maxPlayers,
       });
 
+      console.log('🔵 Step 3: Getting fresh blockhash...');
+      // Get a fresh blockhash with finalized commitment to avoid expiration
+      const { blockhash, lastValidBlockHeight } = await provider.connection.getLatestBlockhash('finalized');
+      console.log('✅ Fresh blockhash obtained:', blockhash);
+      console.log('✅ Last valid block height:', lastValidBlockHeight);
+
       console.log('🔵 Step 4: Building transaction...');
-      // Call initialize_game instruction
+      console.log('🔍 Calling program.methods.initializeGame with params:', {
+        gameId: ensureBN(params.gameId).toString(),
+        smallBlind: params.smallBlind ? ensureBN(params.smallBlind).toString() : null,
+        bigBlind: params.bigBlind ? ensureBN(params.bigBlind).toString() : null,
+        minBuyIn: params.minBuyIn ? ensureBN(params.minBuyIn).toString() : null,
+        maxBuyIn: params.maxBuyIn ? ensureBN(params.maxBuyIn).toString() : null,
+        maxPlayers: params.maxPlayers ?? null,
+      });
+      
+      // Call initializeGame instruction (Anchor automatically derives PDA from seeds)
+      // Do NOT manually specify the game account - Anchor will derive it!
       const txBuilder = program.methods
         .initializeGame(
           ensureBN(params.gameId),
@@ -94,24 +105,69 @@ export class GameInitializer {
           params.maxPlayers ?? null
         )
         .accounts({
-          game: gamePDA,
           authority: provider.wallet.publicKey,
           systemProgram: SystemProgram.programId,
         });
       
       console.log('✅ Transaction builder created');
+      console.log('🔍 Transaction builder type:', typeof txBuilder);
+      console.log('🔍 Transaction builder methods:', Object.keys(txBuilder));
       
-      console.log('🔵 Step 5: Sending transaction to RPC...');
-      const tx = await txBuilder.rpc();
+      console.log('🔵 Step 6: Building instruction manually (bypassing .rpc())...');
+      // Build instruction manually to bypass Anchor's .rpc() issues
+      const instruction = await txBuilder.instruction();
+      console.log('✅ Instruction built successfully');
+      
+      console.log('🔵 Step 7: Creating and signing transaction...');
+      const { Transaction } = await import('@solana/web3.js');
+      const transaction = new Transaction().add(instruction);
+      transaction.recentBlockhash = blockhash;
+      transaction.lastValidBlockHeight = lastValidBlockHeight;
+      transaction.feePayer = provider.wallet.publicKey;
+      
+      console.log('🔵 Step 8: Requesting wallet signature...');
+      const signedTx = await provider.wallet.signTransaction(transaction);
+      console.log('✅ Transaction signed');
+      
+      console.log('🔵 Step 9: Sending signed transaction to network...');
+      const tx = await provider.connection.sendRawTransaction(signedTx.serialize(), {
+        skipPreflight: true,
+        preflightCommitment: 'confirmed',
+      });
+      console.log('✅ Transaction sent:', tx);
 
-      console.log('🔵 Step 6: Confirming transaction...');
-      // Confirm transaction
-      await RPCClient.confirmTransaction(tx);
+      console.log('🔵 Step 7: Confirming transaction...');
+      // Confirm transaction with longer timeout
+      await provider.connection.confirmTransaction({
+        signature: tx,
+        blockhash,
+        lastValidBlockHeight,
+      }, 'confirmed');
       console.log('✅ Transaction confirmed');
 
-      console.log('🔵 Step 7: Fetching created game account...');
-      // Fetch created game account
-      const game = await ProgramClient.fetchGame(gamePDA);
+      // Derive the game PDA (Anchor auto-derived it during transaction)
+      console.log('🔵 Step 8: Deriving game PDA for result...');
+      const [gamePDA, bump] = ProgramClient.deriveGamePDA(provider.wallet.publicKey, ensureBN(params.gameId));
+      console.log('✅ Game PDA:', gamePDA.toBase58());
+
+      // Wait a bit for account to propagate
+      console.log('⏳ Waiting for account to propagate...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      console.log('🔵 Step 9: Fetching created game account...');
+      // Fetch created game account with retry
+      let game = null;
+      let retries = 3;
+      while (retries > 0 && !game) {
+        try {
+          game = await ProgramClient.fetchGame(gamePDA);
+          if (game) break;
+        } catch (e) {
+          console.log(`Retry fetching game account... (${retries} left)`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        retries--;
+      }
       console.log('✅ Game account fetched');
 
       return {
@@ -122,7 +178,20 @@ export class GameInitializer {
         game,
       };
     } catch (error: any) {
-      console.error('Error initializing game:', error);
+      console.error('❌ Error initializing game:', error);
+      console.error('📋 Error details:', {
+        message: error.message,
+        logs: error.logs,
+        code: error.code,
+        stack: error.stack,
+      });
+      
+      // Parse Anchor/Solana error
+      if (error.logs) {
+        console.error('🔍 Transaction logs:');
+        error.logs.forEach((log: string, i: number) => console.error(`  ${i}: ${log}`));
+      }
+      
       return {
         signature: '',
         success: false,
