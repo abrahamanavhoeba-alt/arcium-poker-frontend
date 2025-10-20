@@ -1,53 +1,55 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import GameCard from './GameCard';
-
-// Mock data for now - will connect to blockchain later
-const mockGames = [
-  {
-    id: '1',
-    name: 'High Stakes Table',
-    players: 4,
-    maxPlayers: 6,
-    smallBlind: 0.1,
-    bigBlind: 0.2,
-    minBuyIn: 10,
-    pot: 45.5,
-    status: 'active',
-  },
-  {
-    id: '2',
-    name: 'Degen Table',
-    players: 2,
-    maxPlayers: 6,
-    smallBlind: 0.01,
-    bigBlind: 0.02,
-    minBuyIn: 1,
-    pot: 2.5,
-    status: 'waiting',
-  },
-  {
-    id: '3',
-    name: 'Whale Pool',
-    players: 5,
-    maxPlayers: 6,
-    smallBlind: 1,
-    bigBlind: 2,
-    minBuyIn: 100,
-    pot: 250,
-    status: 'active',
-  },
-];
+import { useGames } from '@/hooks/useGames';
 
 export default function GameList() {
-  const [games, setGames] = useState(mockGames);
+  const { games, loading, error, refetch } = useGames();
   const [filter, setFilter] = useState<'all' | 'active' | 'waiting'>('all');
 
-  const filteredGames = games.filter(game => {
+  // Transform blockchain games to display format
+  const displayGames = games.map(game => ({
+    id: game.publicKey.toBase58(),
+    name: `Table ${game.gameId}`,
+    players: game.playerCount,
+    maxPlayers: game.maxPlayers,
+    smallBlind: game.smallBlind,
+    bigBlind: game.bigBlind,
+    minBuyIn: game.minBuyIn,
+    pot: game.pot,
+    status: game.stage === 'Waiting' ? 'waiting' : 'active' as 'active' | 'waiting',
+  }));
+
+  const filteredGames = displayGames.filter(game => {
     if (filter === 'all') return true;
     return game.status === filter;
   });
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="text-center py-16">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-700 border-t-[#00ff88]"></div>
+        <p className="text-gray-400 mt-4">Loading games...</p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-red-400 mb-4">{error}</p>
+        <button
+          onClick={refetch}
+          className="px-6 py-3 bg-[#00ff88] text-black font-bold rounded-lg hover:bg-[#00dd77] transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

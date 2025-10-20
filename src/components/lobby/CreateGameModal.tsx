@@ -2,15 +2,18 @@
 
 import { useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { useCreateGame } from '@/hooks/useCreateGame';
+import { useRouter } from 'next/navigation';
 
 interface CreateGameModalProps {
   onClose: () => void;
 }
 
 export default function CreateGameModal({ onClose }: CreateGameModalProps) {
-  const { publicKey, connected } = useWallet();
+  const { connected } = useWallet();
+  const { createGame, loading } = useCreateGame();
+  const router = useRouter();
   const [formData, setFormData] = useState({
-    name: '',
     maxPlayers: 6,
     smallBlind: 0.01,
     bigBlind: 0.02,
@@ -26,11 +29,20 @@ export default function CreateGameModal({ onClose }: CreateGameModalProps) {
       return;
     }
 
-    // TODO: Call smart contract to create game
-    console.log('Creating game:', formData);
-    
-    // Close modal
-    onClose();
+    try {
+      const result = await createGame(formData);
+      
+      // Navigate to the game if successful
+      if (result.gamePDA) {
+        router.push(`/game/${result.gamePDA.toBase58()}`);
+      }
+      
+      // Close modal
+      onClose();
+    } catch (err) {
+      console.error('Failed to create game:', err);
+      alert('Failed to create game. Please try again.');
+    }
   };
 
   return (
@@ -49,19 +61,6 @@ export default function CreateGameModal({ onClose }: CreateGameModalProps) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Game Name */}
-          <div>
-            <label className="block text-sm font-semibold mb-2">Game Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="My Poker Table"
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:border-[#00ff88] focus:outline-none"
-              required
-            />
-          </div>
-
           {/* Max Players */}
           <div>
             <label className="block text-sm font-semibold mb-2">Max Players</label>
@@ -131,9 +130,10 @@ export default function CreateGameModal({ onClose }: CreateGameModalProps) {
           {/* Submit */}
           <button
             type="submit"
-            className="w-full py-3 bg-[#00ff88] text-black font-bold rounded-lg hover:bg-[#00dd77] transition-colors"
+            disabled={loading}
+            className="w-full py-3 bg-[#00ff88] text-black font-bold rounded-lg hover:bg-[#00dd77] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Game
+            {loading ? 'Creating...' : 'Create Game'}
           </button>
         </form>
       </div>
