@@ -41,14 +41,22 @@ export function useGames() {
 
       // Initialize program client if wallet is connected
       if (wallet.publicKey && wallet.signTransaction) {
+        const { AnchorProvider } = await import('@coral-xyz/anchor');
         const { ProgramClient } = await import('@/lib/connection/program');
-        const provider = {
-          connection,
+        
+        const anchorWallet = {
           publicKey: wallet.publicKey,
           signTransaction: wallet.signTransaction,
-          signAllTransactions: wallet.signAllTransactions,
+          signAllTransactions: wallet.signAllTransactions!,
         };
-        ProgramClient.initialize(provider as any);
+        
+        const provider = new AnchorProvider(
+          connection,
+          anchorWallet as any,
+          { commitment: 'confirmed' }
+        );
+        
+        ProgramClient.initialize(provider);
       }
 
       // Get all game accounts

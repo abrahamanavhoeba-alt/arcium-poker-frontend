@@ -34,9 +34,10 @@ export class ProgramClient {
    */
   static initialize(provider: AnchorProvider): ArciumPokerProgram {
     if (!programInstance) {
+      // Create program with IDL and provider
+      // The program ID is taken from the IDL's address field
       programInstance = new Program(
-        idl as Idl,
-        PROGRAM_ID,
+        idl as any,
         provider
       );
     }

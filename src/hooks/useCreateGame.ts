@@ -40,17 +40,28 @@ export function useCreateGame() {
       const minBuyInLamports = new BN(params.minBuyIn * 1_000_000_000);
       const maxBuyInLamports = new BN(params.maxBuyIn * 1_000_000_000);
 
-      // Create provider
-      const provider = {
-        connection,
+      // Create Anchor provider
+      const { AnchorProvider } = await import('@coral-xyz/anchor');
+      
+      const anchorWallet = {
         publicKey: wallet.publicKey,
-        signTransaction: wallet.signTransaction,
-        signAllTransactions: wallet.signAllTransactions,
+        signTransaction: wallet.signTransaction!,
+        signAllTransactions: wallet.signAllTransactions!,
       };
+      
+      const provider = new AnchorProvider(
+        connection,
+        anchorWallet as any,
+        { 
+          commitment: 'confirmed',
+          preflightCommitment: 'confirmed',
+          skipPreflight: false
+        }
+      );
 
       // Initialize program client first
       const { ProgramClient } = await import('@/lib/connection/program');
-      ProgramClient.initialize(provider as any);
+      ProgramClient.initialize(provider);
 
       // Initialize game
       const result = await GameInitializer.initializeGame(
