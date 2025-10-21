@@ -6,6 +6,11 @@ import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useJoinGame } from '@/hooks/useJoinGame';
 import { useStartGame } from '@/hooks/useStartGame';
+import { useAdvanceStage } from '@/hooks/useAdvanceStage';
+import { useShowdown } from '@/hooks/useShowdown';
+import { PlayerActionButtons } from '@/components/game/PlayerActionButtons';
+import { PlayerHoleCards } from '@/components/game/PlayerHoleCards';
+import { WinnerDisplay } from '@/components/game/WinnerDisplay';
 
 export default function GamePage() {
   const params = useParams();
@@ -17,8 +22,16 @@ export default function GamePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [buyInAmount, setBuyInAmount] = useState<string>('');
+  const [refreshKey, setRefreshKey] = useState(0);
   const { joinGame, loading: joining, error: joinError } = useJoinGame();
   const { startGame, loading: starting, error: startError } = useStartGame();
+  const { advanceStage, loading: advancing, error: advanceError } = useAdvanceStage();
+  const { executeShowdown, loading: showingDown, error: showdownError } = useShowdown();
+
+  // Helper to refresh game data
+  const refreshGame = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   useEffect(() => {
     async function fetchGame() {
@@ -70,7 +83,7 @@ export default function GamePage() {
     if (gamePDA) {
       fetchGame();
     }
-  }, [gamePDA]);
+  }, [gamePDA, refreshKey]);
 
   const handleJoinGame = async () => {
     if (!wallet.publicKey) {
@@ -129,6 +142,46 @@ export default function GamePage() {
     }
   };
 
+  const handleAdvanceStage = async () => {
+    if (!wallet.publicKey) {
+      alert('Please connect your wallet');
+      return;
+    }
+
+    const result = await advanceStage(new PublicKey(gamePDA));
+    
+    if (result.success) {
+      alert('✅ Stage advanced! Moving to next round...');
+      refreshGame();
+    } else {
+      alert(`Failed to advance stage: ${result.error}`);
+    }
+  };
+
+  const handleShowdown = async () => {
+    if (!wallet.publicKey) {
+      alert('Please connect your wallet');
+      return;
+    }
+
+    // Get all player state PDAs (sorted by seat index)
+    const sortedPlayers = [...players].sort((a: any, b: any) => 
+      a.account.seatIndex - b.account.seatIndex
+    );
+    const playerStatePDAs = sortedPlayers.map((p: any) => p.publicKey);
+
+    console.log('📝 Passing', playerStatePDAs.length, 'player state PDAs to showdown');
+
+    const result = await executeShowdown(new PublicKey(gamePDA), playerStatePDAs);
+    
+    if (result.success) {
+      alert('🏆 Showdown complete! Winner determined!');
+      refreshGame();
+    } else {
+      alert(`Failed to execute showdown: ${result.error}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0b0d] flex items-center justify-center">
@@ -178,6 +231,29 @@ export default function GamePage() {
           </p>
         </div>
 
+        {/* Game Status Banner */}
+        {game?.stage && !game.stage.waiting && (
+          <div className="bg-gradient-to-r from-[#00ff88]/20 to-purple-500/20 border border-[#00ff88]/30 rounded-xl p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 bg-[#00ff88] rounded-full animate-pulse"></div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Game In Progress</h3>
+                  <p className="text-sm text-gray-400">
+                    Stage: {Object.keys(game.stage)[0].replace(/([A-Z])/g, ' $1').trim()}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-400">Current Pot</p>
+                <p className="text-2xl font-bold text-[#00ff88]">
+                  {(game?.pot?.toNumber() || 0) / 1e9} SOL
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Game Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {/* Status Card */}
@@ -186,20 +262,32 @@ export default function GamePage() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-400">Status:</span>
-                <span className="text-[#00ff88] font-semibold">
-                  {game?.status || 'Waiting'}
+                <span className={`font-semibold ${
+                  game?.stage?.waiting ? 'text-yellow-500' : 'text-[#00ff88]'
+                }`}>
+                  {game?.stage?.waiting ? 'Waiting' : 'Playing'}
                 </span>
               </div>
+              {!game?.stage?.waiting && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Current Turn:</span>
+                    <span className="text-white font-semibold">
+                      Player {(game?.currentPlayerIndex || 0) + 1}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Current Bet:</span>
+                    <span className="text-white font-semibold">
+                      {(game?.currentBet?.toNumber() || 0) / 1e9} SOL
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-400">Players:</span>
                 <span className="text-white font-semibold">
                   {game?.playerCount || 0} / {game?.maxPlayers || 0}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Authority:</span>
-                <span className="text-white text-sm font-mono truncate max-w-[200px]">
-                  {game?.authority?.toBase58() || 'Unknown'}
                 </span>
               </div>
             </div>
@@ -237,6 +325,121 @@ export default function GamePage() {
           </div>
         </div>
 
+        {/* Player Hole Cards */}
+        {players.some((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58()) && !game?.stage?.waiting && (
+          <PlayerHoleCards
+            playerState={players.find((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58())?.account}
+            isCurrentUser={true}
+          />
+        )}
+
+        {/* Winner Display (if game finished OR at showdown with no actions left) */}
+        {(game?.stage?.finished || game?.stage?.showdown) && players.length > 0 && (
+          <WinnerDisplay
+            game={game}
+            players={players}
+            myPublicKey={wallet.publicKey?.toBase58()}
+          />
+        )}
+
+        {/* Showdown Button (if at Showdown stage) */}
+        {game?.stage?.showdown && wallet.connected && (
+          <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500 rounded-xl p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
+                  <span>🏆</span>
+                  Showdown!
+                </h2>
+                <p className="text-gray-300 text-sm">
+                  All betting rounds complete. Reveal cards and determine the winner!
+                </p>
+                <p className="text-yellow-400 text-xs mt-2">
+                  💡 <strong>Tip:</strong> Since cards are encrypted (MVP), we'll split the pot evenly for testing.
+                </p>
+              </div>
+              <button
+                onClick={handleShowdown}
+                disabled={showingDown}
+                className={`px-6 py-3 font-bold rounded-lg transition shadow-lg ${
+                  showingDown
+                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                    : 'bg-yellow-500 text-black hover:bg-yellow-400 shadow-yellow-500/20'
+                }`}
+              >
+                {showingDown ? 'Revealing...' : '🎴 Reveal & Determine Winner'}
+              </button>
+            </div>
+            {showdownError && (
+              <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-sm">{showdownError}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Advance Stage Button */}
+        {!game?.stage?.waiting && !game?.stage?.showdown && !game?.stage?.finished && wallet.connected && (
+          <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white mb-2">Betting Round Complete</h2>
+                <p className="text-gray-400 text-sm">
+                  All players have acted. Advance to the next stage.
+                </p>
+              </div>
+              <button
+                onClick={handleAdvanceStage}
+                disabled={advancing}
+                className={`px-6 py-3 font-bold rounded-lg transition shadow-lg ${
+                  advancing
+                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                    : 'bg-purple-600 text-white hover:bg-purple-500 shadow-purple-500/20'
+                }`}
+              >
+                {advancing ? 'Advancing...' : '➡️ Next Stage'}
+              </button>
+            </div>
+            {advanceError && (
+              <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-sm">{advanceError}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Community Cards (if game started) */}
+        {!game?.stage?.waiting && (
+          <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
+            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <span>🃏</span>
+              Community Cards
+            </h2>
+            <div className="flex items-center justify-center gap-3 py-6">
+              {game?.communityCards && game.communityCards.slice(0, game.communityCardsRevealed || 0).map((card: number, index: number) => (
+                <div
+                  key={index}
+                  className="w-16 h-24 bg-white rounded-lg border-2 border-gray-300 flex items-center justify-center shadow-lg"
+                >
+                  <span className="text-2xl font-bold text-gray-800">
+                    {card === 0 ? '?' : card}
+                  </span>
+                </div>
+              ))}
+              {(!game?.communityCardsRevealed || game.communityCardsRevealed === 0) && (
+                <p className="text-gray-500 text-sm">No cards revealed yet</p>
+              )}
+            </div>
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+              <span className={game?.communityCardsRevealed >= 3 ? 'text-[#00ff88]' : ''}>Flop (3)</span>
+              <span>•</span>
+              <span className={game?.communityCardsRevealed >= 4 ? 'text-[#00ff88]' : ''}>Turn (4)</span>
+              <span>•</span>
+              <span className={game?.communityCardsRevealed === 5 ? 'text-[#00ff88]' : ''}>River (5)</span>
+            </div>
+          </div>
+        )}
+
         {/* Players List */}
         <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
           <h2 className="text-lg font-bold text-white mb-4">
@@ -252,12 +455,15 @@ export default function GamePage() {
               {players.map((playerData: any, index: number) => {
                 const player = playerData.account;
                 const isCurrentUser = wallet.publicKey?.toBase58() === player.player.toBase58();
+                const isCurrentTurn = !game?.stage?.waiting && game?.currentPlayerIndex === player.seatIndex;
                 
                 return (
                   <div
                     key={playerData.publicKey.toBase58()}
-                    className={`flex items-center justify-between p-4 rounded-lg border ${
-                      isCurrentUser
+                    className={`flex items-center justify-between p-4 rounded-lg border transition ${
+                      isCurrentTurn
+                        ? 'bg-[#00ff88]/20 border-[#00ff88] ring-2 ring-[#00ff88]/50'
+                        : isCurrentUser
                         ? 'bg-[#00ff88]/10 border-[#00ff88]/30'
                         : 'bg-[#0a0b0d] border-gray-800'
                     }`}
@@ -278,6 +484,11 @@ export default function GamePage() {
                               YOU
                             </span>
                           )}
+                          {isCurrentTurn && (
+                            <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded font-bold animate-pulse">
+                              TURN
+                            </span>
+                          )}
                         </div>
                         <p className="text-gray-500 text-sm">
                           Seat {player.seatIndex !== null ? player.seatIndex + 1 : 'TBD'}
@@ -286,7 +497,7 @@ export default function GamePage() {
                     </div>
                     <div className="text-right">
                       <p className="text-white font-bold">
-                        {(player.chipCount?.toNumber() || 0) / 1e9} SOL
+                        {(player.chipStack?.toNumber() || 0) / 1e9} SOL
                       </p>
                       <p className="text-gray-500 text-xs">Chips</p>
                     </div>
@@ -295,6 +506,40 @@ export default function GamePage() {
               })}
             </div>
           )}
+        </div>
+
+        {/* Arcium MPC Badge */}
+        {game?.deck_initialized && (
+          <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-2 border-purple-500 rounded-xl p-4 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-600 p-2 rounded-lg">
+                🔐
+              </div>
+              <div>
+                <div className="font-bold text-white">Secured by Arcium MPC</div>
+                <div className="text-sm text-gray-400">
+                  Deck shuffled using multi-party computation
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Game Info */}
+        <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4">Game Information</h2>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Min Buy-in:</span>
+            <span className="text-white font-semibold">
+              {(game?.minBuyIn?.toNumber() || 0) / 1e9} SOL
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">Max Buy-in:</span>
+            <span className="text-white font-semibold">
+              {(game?.maxBuyIn?.toNumber() || 0) / 1e9} SOL
+            </span>
+          </div>
         </div>
 
         {/* Actions */}
@@ -310,33 +555,64 @@ export default function GamePage() {
               <p className="text-gray-400 mb-4">Connect your wallet to join this game</p>
             </div>
           ) : players.some((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58()) ? (
-            <div className="text-center py-8">
-              <div className="text-[#00ff88] text-5xl mb-4">✓</div>
-              <h3 className="text-xl font-bold text-white mb-2">You're In!</h3>
-              <p className="text-gray-400 mb-6">
-                Waiting for {game?.maxPlayers - players.length} more player(s) to join...
-              </p>
-              {wallet.publicKey?.toBase58() === game?.authority?.toBase58() && players.length >= 2 && (
-                <div className="space-y-3">
-                  {startError && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                      <p className="text-red-400 text-sm">{startError}</p>
-                    </div>
+            // Player is in the game
+            (() => {
+              const currentPlayer = players.find((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58());
+              const isMyTurn = !game?.stage?.waiting && game?.currentPlayerIndex === currentPlayer?.account.seatIndex;
+              const gameIsPlaying = !game?.stage?.waiting && !game?.stage?.finished;
+
+              // If game is playing and it's the player's turn, show action buttons
+              if (gameIsPlaying && isMyTurn) {
+                return (
+                  <PlayerActionButtons
+                    gamePDA={gamePDA}
+                    game={game}
+                    playerState={currentPlayer?.account}
+                    isMyTurn={isMyTurn}
+                    onActionComplete={refreshGame}
+                  />
+                );
+              }
+
+              // Otherwise show waiting state or start button
+              return (
+                <div className="text-center py-8">
+                  <div className="text-[#00ff88] text-5xl mb-4">✓</div>
+                  <h3 className="text-xl font-bold text-white mb-2">You're In!</h3>
+                  {!gameIsPlaying ? (
+                    <>
+                      <p className="text-gray-400 mb-6">
+                        Waiting for {game?.maxPlayers - players.length} more player(s) to join...
+                      </p>
+                      {wallet.publicKey?.toBase58() === game?.authority?.toBase58() && players.length >= 2 && game?.stage?.waiting && (
+                        <div className="space-y-3">
+                          {startError && (
+                            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                              <p className="text-red-400 text-sm">{startError}</p>
+                            </div>
+                          )}
+                          <button
+                            onClick={handleStartGame}
+                            disabled={starting}
+                            className={`px-6 py-3 font-bold rounded-lg transition shadow-lg shadow-[#00ff88]/20 ${
+                              starting
+                                ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                : 'bg-[#00ff88] text-black hover:bg-[#00dd77]'
+                            }`}
+                          >
+                            {starting ? 'Starting...' : 'Start Game'}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-gray-400 mb-6">
+                      Game in progress. Waiting for your turn...
+                    </p>
                   )}
-                  <button
-                    onClick={handleStartGame}
-                    disabled={starting}
-                    className={`px-6 py-3 font-bold rounded-lg transition shadow-lg shadow-[#00ff88]/20 ${
-                      starting
-                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                        : 'bg-[#00ff88] text-black hover:bg-[#00dd77]'
-                    }`}
-                  >
-                    {starting ? 'Starting...' : 'Start Game'}
-                  </button>
                 </div>
-              )}
-            </div>
+              );
+            })()
           ) : game?.playerCount >= game?.maxPlayers ? (
             <div className="text-center py-4">
               <p className="text-yellow-500 mb-4">⚠️ Game is full</p>
