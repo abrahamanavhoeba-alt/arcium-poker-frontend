@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
+import bs58 from 'bs58';
 import idl from '@/arcium_poker.json';
 
 // Arcium constants
-const MXE_PROGRAM_ID = 'FHzVm4eu5ZuuzX3W4YRD8rS6XZVrdXubrJnYTqgBYZu2'; // Our program is the MXE
+const MXE_PROGRAM_ID = 'EFH2iTyXwb1xHynh9NkzsS7QCqawf9hJCfLs9R9YfW1c'; // Our program is the MXE
 const CLUSTER_OFFSET = 1078779259; // From deployment
 
 export function useStartGame() {
@@ -38,26 +39,54 @@ export function useStartGame() {
       // Create program instance
       const program = new Program(idl as any, provider);
 
-      // Fetch all player states for this game
-      console.log('👥 Fetching player states...');
-      const allPlayerStates = await (program.account as any).PlayerState.all();
-      const gamePlayers = allPlayerStates.filter((p: any) => 
-        p.account.game.toBase58() === gamePDA.toBase58()
-      );
-      console.log(`✅ Found ${gamePlayers.length} player state(s)`);
+      // Fetch game state to get players
+      console.log('👥 Fetching game state...');
+      const gameAccountInfo = await connection.getAccountInfo(gamePDA);
+      if (!gameAccountInfo) {
+        throw new Error('Game account not found');
+      }
+      
+      // Manually parse the game account data
+      // Game structure: discriminator(8) + authority(32) + gameId(8) + stage(1) + smallBlind(8) + bigBlind(8) + 
+      //                 minBuyIn(8) + maxBuyIn(8) + maxPlayers(1) + playerCount(1) + players(32*6)
+      const data = gameAccountInfo.data;
+      
+      // Player count is at offset: 8 + 32 + 8 + 1 + 8 + 8 + 8 + 8 + 1 = 82
+      const playerCount = data[82];
+      
+      // Players array starts at offset 83
+      const players: PublicKey[] = [];
+      for (let i = 0; i < playerCount; i++) {
+        const offset = 83 + (i * 32);
+        const playerBytes = data.slice(offset, offset + 32);
+        players.push(new PublicKey(playerBytes));
+      }
+      
+      console.log(`✅ Found ${playerCount} player(s) in game`);
+      console.log('📝 Players:', players.map((p: PublicKey) => p.toBase58()));
 
-      // Sort players by seat index (CRITICAL for the program)
-      const sortedPlayers = gamePlayers.sort((a: any, b: any) => 
-        a.account.seatIndex - b.account.seatIndex
-      );
-      console.log('✅ Players sorted by seat index');
-
-      // Build remaining accounts array (player states)
-      const remainingAccounts = sortedPlayers.map((playerData: any) => ({
-        pubkey: playerData.publicKey,
-        isWritable: true,
-        isSigner: false,
-      }));
+      // Derive PlayerState PDAs for each player (in order)
+      const remainingAccounts = [];
+      for (let i = 0; i < playerCount; i++) {
+        const playerPubkey = players[i];
+        const [playerStatePDA] = await PublicKey.findProgramAddress(
+          [
+            Buffer.from('player'),
+            gamePDA.toBuffer(),
+            playerPubkey.toBuffer(),
+          ],
+          program.programId
+        );
+        
+        remainingAccounts.push({
+          pubkey: playerStatePDA,
+          isWritable: true,
+          isSigner: false,
+        });
+        
+        console.log(`  Player ${i}: ${playerPubkey.toBase58()}`);
+        console.log(`  PlayerState PDA: ${playerStatePDA.toBase58()}`);
+      }
 
       console.log(`📝 Adding ${remainingAccounts.length} player account(s) as remaining accounts`);
       console.log('📝 Remaining accounts details:');
@@ -66,7 +95,7 @@ export function useStartGame() {
       });
 
       // Generate random entropy for each player (32 bytes each)
-      const playerEntropy = sortedPlayers.map(() => {
+      const playerEntropy = players.map(() => {
         const entropy = new Uint8Array(32);
         crypto.getRandomValues(entropy);
         return Array.from(entropy);
