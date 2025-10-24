@@ -13,10 +13,10 @@ import { PublicKey, Commitment } from '@solana/web3.js';
 
 /**
  * Arcium Poker Program ID (from IDL)
- * Address: FHzVm4eu5ZuuzX3W4YRD8rS6XZVrdXubrJnYTqgBYZu2
+ * Address: AshR4SHHiPJAKFbPjeeCkH4TNw82bbrJwmzbP4dThQKQ
  */
 export const PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_PROGRAM_ID || 'FHzVm4eu5ZuuzX3W4YRD8rS6XZVrdXubrJnYTqgBYZu2'
+  process.env.NEXT_PUBLIC_PROGRAM_ID || 'AshR4SHHiPJAKFbPjeeCkH4TNw82bbrJwmzbP4dThQKQ'
 );
 
 /**
