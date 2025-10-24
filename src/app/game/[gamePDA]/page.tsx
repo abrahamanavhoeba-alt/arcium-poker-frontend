@@ -58,16 +58,31 @@ export default function GamePage() {
         const program = new Program(idl as any, provider);
         
         // Fetch the game account
-        const gameAccount = await program.account.game.fetch(new PublicKey(gamePDA));
+        const gameAccount = await (program.account as any).game.fetch(new PublicKey(gamePDA));
         console.log('✅ Game fetched:', gameAccount);
+        console.log('🎯 Game stage:', gameAccount.stage);
+        console.log('🎯 Deck initialized:', gameAccount.deckInitialized);
+        console.log('🎯 Player count:', gameAccount.playerCount);
         
         // Fetch all player states for this game
         console.log('👥 Fetching players...');
-        const allPlayerStates = await program.account.playerState.all();
+        const allPlayerStates = await (program.account as any).playerState.all();
         const gamePlayers = allPlayerStates.filter((p: any) => 
           p.account.game.toBase58() === gamePDA
         );
         console.log(`✅ Found ${gamePlayers.length} player(s)`);
+        
+        // Log player states
+        gamePlayers.forEach((p: any, i: number) => {
+          console.log(`👤 Player ${i + 1}:`, {
+            pubkey: p.publicKey.toBase58(),
+            player: p.account.player.toBase58(),
+            chips: p.account.chips?.toNumber(),
+            seatIndex: p.account.seatIndex,
+            isActive: p.account.isActive,
+            holeCards: p.account.holeCards,
+          });
+        });
         
         setGame(gameAccount);
         setPlayers(gamePlayers);
