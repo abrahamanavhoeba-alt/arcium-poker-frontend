@@ -2,11 +2,19 @@ import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
+import bs58 from 'bs58';
 import idl from '@/arcium_poker.json';
+import { PROGRAM_ID, MPC_PROGRAM_ID } from '@/lib/shared/constants';
 
-// Arcium constants
-const MXE_PROGRAM_ID = 'FHzVm4eu5ZuuzX3W4YRD8rS6XZVrdXubrJnYTqgBYZu2'; // Our program is the MXE
-const CLUSTER_OFFSET = 1078779259; // From deployment
+// Arcium MXE Configuration
+// ✅ MXE DEPLOYED! Your poker program IS the MXE
+// Program: Cm5y2aab75vj9dpRcyG1EeZNgeh4GZLRkN3BmmRVNEwZ
+// MXE Init: 5ZX1gbRCpPmzMbrNU3s8NTZe1BueYCndbsctQtkurPEKVjpZdoRaRjpHz6gqj5b9n2pfYrPARNzdzUWtvq4YoZET
+// Cluster: 1078779259 (Arcium devnet)
+// Circuits: [1] shuffle_deck registered
+const MXE_PROGRAM_ID = MPC_PROGRAM_ID?.toBase58() || PROGRAM_ID.toBase58(); // Your program IS the MXE
+const CLUSTER_OFFSET = 1078779259; // Arcium devnet cluster offset
+const USE_REAL_MPC = true; // ✅ SET TO TRUE - MXE is deployed!
 
 export function useStartGame() {
   const { connection } = useConnection();
@@ -26,7 +34,7 @@ export function useStartGame() {
       console.log('🎮 ========== START GAME ==========');
       console.log('📝 Game PDA:', gamePDA.toBase58());
       console.log('👛 Authority:', wallet.publicKey.toBase58());
-      console.log('🔐 Using REAL Arcium MPC!');
+      console.log('🔐 Mode:', USE_REAL_MPC && MXE_PROGRAM_ID ? 'REAL Arcium MPC' : 'Mock Mode (Testing)');
 
       // Create provider
       const provider = new AnchorProvider(
@@ -36,25 +44,57 @@ export function useStartGame() {
       );
 
       // Create program instance
+      const programId = new PublicKey(idl.address);
       const program = new Program(idl as any, provider);
 
-      // Fetch all player states for this game
+      // Fetch all player states for this game using getProgramAccounts
       console.log('👥 Fetching player states...');
-      const allPlayerStates = await (program.account as any).PlayerState.all();
-      const gamePlayers = allPlayerStates.filter((p: any) => 
-        p.account.game.toBase58() === gamePDA.toBase58()
-      );
-      console.log(`✅ Found ${gamePlayers.length} player state(s)`);
+      
+      // PlayerState PDA seed is ["player", game, player]
+      const playerSeed = Buffer.from('player');
+      
+      // Get all accounts that are PlayerStates for this game
+      // PlayerState discriminator from IDL: [56, 3, 60, 86, 174, 16, 244, 195]
+      const playerStateDiscriminator = Buffer.from([56, 3, 60, 86, 174, 16, 244, 195]);
+      
+      // PlayerState layout: [discriminator(8)] [player(32)] [game(32)] [...]
+      // So game field is at offset 8 + 32 = 40
+      const accounts = await connection.getProgramAccounts(programId, {
+        filters: [
+          {
+            memcmp: {
+              offset: 0, // Check discriminator first
+              bytes: bs58.encode(playerStateDiscriminator),
+            }
+          },
+          {
+            memcmp: {
+              offset: 40, // After discriminator(8) + player pubkey(32)
+              bytes: gamePDA.toBase58(),
+            }
+          }
+        ]
+      });
+      
+      console.log(`✅ Found ${accounts.length} player state(s)`);
 
-      // Sort players by seat index (CRITICAL for the program)
-      const sortedPlayers = gamePlayers.sort((a: any, b: any) => 
-        a.account.seatIndex - b.account.seatIndex
-      );
+      // Manually decode seat_index to sort (it's at offset 72, 1 byte)
+      const playerStates = accounts.map(({ pubkey, account }) => {
+        const seatIndex = account.data[72]; // seat_index is at byte 72
+        console.log(`  Player ${pubkey.toBase58().slice(0, 8)}... seat: ${seatIndex}`);
+        return {
+          pubkey,
+          seatIndex,
+        };
+      });
+      
+      // Sort by seat index (CRITICAL for the program)
+      const sortedPlayers = playerStates.sort((a, b) => a.seatIndex - b.seatIndex);
       console.log('✅ Players sorted by seat index');
 
       // Build remaining accounts array (player states)
       const remainingAccounts = sortedPlayers.map((playerData: any) => ({
-        pubkey: playerData.publicKey,
+        pubkey: playerData.pubkey,
         isWritable: true,
         isSigner: false,
       }));
@@ -78,75 +118,99 @@ export function useStartGame() {
       const computationOffset = new Uint8Array(8);
       crypto.getRandomValues(computationOffset);
 
-      // Derive MXE accounts (same logic as smart contract)
-      const programId = new PublicKey(MXE_PROGRAM_ID);
+      // Derive MXE accounts (only if using real MPC)
+      let mxeAccounts: any = null;
+      
+      if (USE_REAL_MPC && MXE_PROGRAM_ID) {
+        const programId = new PublicKey(MXE_PROGRAM_ID);
 
-      // MXE account PDA: ["mxe", program_id]
-      const [mxeAccount] = await PublicKey.findProgramAddress(
-        [Buffer.from("mxe"), programId.toBuffer()],
-        programId
-      );
+        // MXE account PDA: ["mxe", program_id]
+        const [mxeAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("mxe"), programId.toBuffer()],
+          programId
+        );
 
-      // Computation definition PDA: ["comp_def", program_id, comp_def_offset]
-      const compDefOffset = Buffer.alloc(4);
-      compDefOffset.writeUInt32LE(1, 0); // shuffle = 1
-      const [compDefAccount] = await PublicKey.findProgramAddress(
-        [Buffer.from("comp_def"), programId.toBuffer(), compDefOffset],
-        programId
-      );
+        // Computation definition PDA: ["comp_def", program_id, comp_def_offset]
+        const compDefOffset = Buffer.alloc(4);
+        compDefOffset.writeUInt32LE(1, 0); // shuffle = 1
+        const [compDefAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("comp_def"), programId.toBuffer(), compDefOffset],
+          programId
+        );
 
-      // Mempool account PDA: ["mempool", program_id]
-      const [mempoolAccount] = await PublicKey.findProgramAddress(
-        [Buffer.from("mempool"), programId.toBuffer()],
-        programId
-      );
+        // Mempool account PDA: ["mempool", program_id]
+        const [mempoolAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("mempool"), programId.toBuffer()],
+          programId
+        );
 
-      // Executing pool PDA: ["executing_pool", program_id]
-      const [executingPoolAccount] = await PublicKey.findProgramAddress(
-        [Buffer.from("executing_pool"), programId.toBuffer()],
-        programId
-      );
+        // Executing pool PDA: ["executing_pool", program_id]
+        const [executingPoolAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("executing_pool"), programId.toBuffer()],
+          programId
+        );
 
-      // Computation account PDA: ["computation", program_id, computation_offset]
-      const [computationAccount] = await PublicKey.findProgramAddress(
-        [Buffer.from("computation"), programId.toBuffer(), computationOffset],
-        programId
-      );
+        // Computation account PDA: ["computation", program_id, computation_offset]
+        const [computationAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("computation"), programId.toBuffer(), computationOffset],
+          programId
+        );
 
-      // Cluster account - this is on Arcium network, not a PDA
-      // We'll use the cluster offset to derive it
-      const clusterOffset = Buffer.alloc(8);
-      clusterOffset.writeBigUInt64LE(BigInt(CLUSTER_OFFSET), 0);
-      const [clusterAccount] = await PublicKey.findProgramAddress(
-        [Buffer.from("cluster"), clusterOffset],
-        programId
-      );
+        // Cluster account - this is on Arcium network, not a PDA
+        // We'll use the cluster offset to derive it
+        const clusterOffset = Buffer.alloc(8);
+        clusterOffset.writeBigUInt64LE(BigInt(CLUSTER_OFFSET), 0);
+        const [clusterAccount] = await PublicKey.findProgramAddress(
+          [Buffer.from("cluster"), clusterOffset],
+          programId
+        );
 
-      console.log('🔐 MXE Accounts:');
-      console.log('  MXE Program:', programId.toBase58());
-      console.log('  MXE Account:', mxeAccount.toBase58());
-      console.log('  Comp Def:', compDefAccount.toBase58());
-      console.log('  Mempool:', mempoolAccount.toBase58());
-      console.log('  Exec Pool:', executingPoolAccount.toBase58());
-      console.log('  Computation:', computationAccount.toBase58());
-      console.log('  Cluster:', clusterAccount.toBase58());
+        mxeAccounts = {
+          programId,
+          mxeAccount,
+          compDefAccount,
+          mempoolAccount,
+          executingPoolAccount,
+          computationAccount,
+          clusterAccount,
+        };
 
-      // Build start game instruction with MXE accounts
-      console.log('🔨 Building start game instruction with REAL MPC...');
-      const instruction = await program.methods
+        console.log('🔐 MXE Accounts (REAL MPC):');
+        console.log('  MXE Program:', programId.toBase58());
+        console.log('  MXE Account:', mxeAccount.toBase58());
+        console.log('  Comp Def:', compDefAccount.toBase58());
+        console.log('  Mempool:', mempoolAccount.toBase58());
+        console.log('  Exec Pool:', executingPoolAccount.toBase58());
+        console.log('  Computation:', computationAccount.toBase58());
+        console.log('  Cluster:', clusterAccount.toBase58());
+      } else {
+        console.log('🔐 Using Mock Mode (no MXE accounts - deterministic shuffle)');
+      }
+
+      // Build start game instruction
+      console.log('🔨 Building start game instruction...');
+      const instructionBuilder = program.methods
         .startGame(playerEntropy)
         .accounts({
           game: gamePDA,
           authority: wallet.publicKey,
-          mxeProgram: programId,
-          mxeAccount: mxeAccount,
-          compDefAccount: compDefAccount,
-          mempoolAccount: mempoolAccount,
-          executingPoolAccount: executingPoolAccount,
-          clusterAccount: clusterAccount,
-          computationAccount: computationAccount,
           systemProgram: SystemProgram.programId,
-        })
+        });
+
+      // Add MXE accounts only if using real MPC
+      if (mxeAccounts) {
+        instructionBuilder.accounts({
+          mxeProgram: mxeAccounts.programId,
+          mxeAccount: mxeAccounts.mxeAccount,
+          compDefAccount: mxeAccounts.compDefAccount,
+          mempoolAccount: mxeAccounts.mempoolAccount,
+          executingPoolAccount: mxeAccounts.executingPoolAccount,
+          clusterAccount: mxeAccounts.clusterAccount,
+          computationAccount: mxeAccounts.computationAccount,
+        });
+      }
+
+      const instruction = await instructionBuilder
         .remainingAccounts(remainingAccounts)
         .instruction();
 
@@ -193,7 +257,20 @@ export function useStartGame() {
       console.error('❌ Error message:', err.message);
       console.error('❌ Error logs:', err.logs);
       console.error('❌ Full error:', JSON.stringify(err, null, 2));
-      const errorMessage = err.message || 'Failed to start game';
+      
+      // Decode custom error codes
+      let errorMessage = err.message || 'Failed to start game';
+      if (err.InstructionError) {
+        const [_, errorInfo] = err.InstructionError;
+        if (errorInfo?.Custom === 6021) {
+          errorMessage = 'Not enough players to start game (minimum 2 required)';
+        } else if (errorInfo?.Custom === 6000) {
+          errorMessage = 'Game already started';
+        } else if (errorInfo?.Custom) {
+          errorMessage = `Smart contract error ${errorInfo.Custom}`;
+        }
+      }
+      
       setError(errorMessage);
       return {
         success: false,

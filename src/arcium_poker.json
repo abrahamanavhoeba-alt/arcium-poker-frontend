@@ -1,5 +1,5 @@
 {
-  "address": "FHzVm4eu5ZuuzX3W4YRD8rS6XZVrdXubrJnYTqgBYZu2",
+  "address": "Cm5y2aab75vj9dpRcyG1EeZNgeh4GZLRkN3BmmRVNEwZ",
   "metadata": {
     "name": "arcium_poker",
     "version": "0.1.0",
@@ -128,6 +128,104 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "handle_shuffle_callback",
+      "docs": [
+        "Handle MXE callback with shuffle result",
+        "Called by Arcium network after MPC computation completes"
+      ],
+      "discriminator": [
+        24,
+        190,
+        241,
+        17,
+        99,
+        225,
+        136,
+        52
+      ],
+      "accounts": [
+        {
+          "name": "game",
+          "writable": true
+        },
+        {
+          "name": "mxe_program",
+          "docs": [
+            "MXE program calling back"
+          ]
+        },
+        {
+          "name": "computation_account",
+          "docs": [
+            "Computation account with results"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "computation_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "encrypted_output",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "init_shuffle_comp_def",
+      "docs": [
+        "Initialize computation definition for MPC shuffle",
+        "Must be called once after deployment"
+      ],
+      "discriminator": [
+        194,
+        175,
+        67,
+        37,
+        158,
+        107,
+        165,
+        180
+      ],
+      "accounts": [
+        {
+          "name": "mxe_account",
+          "docs": [
+            "MXE account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "comp_def_account",
+          "docs": [
+            "Computation definition account to initialize"
+          ],
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "comp_def_offset",
+          "type": "u32"
+        }
+      ]
     },
     {
       "name": "initialize_game",
@@ -844,6 +942,57 @@
             "Game authority (creator) must start the game"
           ],
           "signer": true
+        },
+        {
+          "name": "mxe_program",
+          "docs": [
+            "MXE program for encrypted computations"
+          ]
+        },
+        {
+          "name": "mxe_account",
+          "docs": [
+            "MXE account for this program"
+          ],
+          "writable": true
+        },
+        {
+          "name": "comp_def_account",
+          "docs": [
+            "Computation definition account for shuffle"
+          ],
+          "writable": true
+        },
+        {
+          "name": "mempool_account",
+          "docs": [
+            "Mempool account for queueing computations"
+          ],
+          "writable": true
+        },
+        {
+          "name": "executing_pool_account",
+          "docs": [
+            "Executing pool account"
+          ],
+          "writable": true
+        },
+        {
+          "name": "cluster_account",
+          "docs": [
+            "Cluster account"
+          ]
+        },
+        {
+          "name": "computation_account",
+          "docs": [
+            "Computation account (will be created)"
+          ],
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [

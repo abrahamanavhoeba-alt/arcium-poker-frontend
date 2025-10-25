@@ -1,11 +1,14 @@
 'use client';
 
+import { DeckManager } from '@/lib/cards/deck';
+
 interface PlayerHoleCardsProps {
   playerState: any;
   isCurrentUser: boolean;
+  showRevealed?: boolean; // Show actual cards (for showdown)
 }
 
-export function PlayerHoleCards({ playerState, isCurrentUser }: PlayerHoleCardsProps) {
+export function PlayerHoleCards({ playerState, isCurrentUser, showRevealed = false }: PlayerHoleCardsProps) {
   if (!isCurrentUser || !playerState) {
     return null;
   }
@@ -17,6 +20,10 @@ export function PlayerHoleCards({ playerState, isCurrentUser }: PlayerHoleCardsP
   const hasCards = playerState.encryptedHoleCards && 
                    playerState.encryptedHoleCards.length === 2;
 
+  // Get card info if we should show them
+  const card1Info = hasCards ? DeckManager.getCardInfoFromIndex(playerState.encryptedHoleCards[0]) : null;
+  const card2Info = hasCards ? DeckManager.getCardInfoFromIndex(playerState.encryptedHoleCards[1]) : null;
+
   return (
     <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
       <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -27,11 +34,24 @@ export function PlayerHoleCards({ playerState, isCurrentUser }: PlayerHoleCardsP
       <div className="flex items-center justify-center gap-4 py-6">
         {hasCards ? (
           <>
+            {/* Card 1 */}
             <div className="relative">
-              <div className="w-20 h-28 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg border-2 border-purple-400 flex items-center justify-center shadow-lg">
+              <div className={`w-20 h-28 rounded-lg border-2 flex items-center justify-center shadow-lg ${
+                showRevealed 
+                  ? 'bg-white border-gray-300' 
+                  : 'bg-gradient-to-br from-purple-600 to-blue-600 border-purple-400'
+              }`}>
                 <div className="text-center">
-                  <div className="text-3xl mb-1">🔒</div>
-                  <div className="text-xs text-white font-bold">Card 1</div>
+                  {showRevealed && card1Info ? (
+                    <div className={`text-3xl font-bold ${card1Info.color === 'red' ? 'text-red-500' : 'text-black'}`}>
+                      {card1Info.display}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-3xl mb-1">🔒</div>
+                      <div className="text-xs text-white font-bold">Card 1</div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#00ff88] rounded-full flex items-center justify-center">
@@ -39,11 +59,24 @@ export function PlayerHoleCards({ playerState, isCurrentUser }: PlayerHoleCardsP
               </div>
             </div>
             
+            {/* Card 2 */}
             <div className="relative">
-              <div className="w-20 h-28 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg border-2 border-purple-400 flex items-center justify-center shadow-lg">
+              <div className={`w-20 h-28 rounded-lg border-2 flex items-center justify-center shadow-lg ${
+                showRevealed 
+                  ? 'bg-white border-gray-300' 
+                  : 'bg-gradient-to-br from-purple-600 to-blue-600 border-purple-400'
+              }`}>
                 <div className="text-center">
-                  <div className="text-3xl mb-1">🔒</div>
-                  <div className="text-xs text-white font-bold">Card 2</div>
+                  {showRevealed && card2Info ? (
+                    <div className={`text-3xl font-bold ${card2Info.color === 'red' ? 'text-red-500' : 'text-black'}`}>
+                      {card2Info.display}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-3xl mb-1">🔒</div>
+                      <div className="text-xs text-white font-bold">Card 2</div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#00ff88] rounded-full flex items-center justify-center">
@@ -58,9 +91,15 @@ export function PlayerHoleCards({ playerState, isCurrentUser }: PlayerHoleCardsP
       
       {hasCards && (
         <div className="text-center">
-          <p className="text-xs text-gray-500">
-            🔐 Your cards are encrypted via Arcium MPC
-          </p>
+          {showRevealed ? (
+            <p className="text-xs text-gray-500">
+              🎴 Cards revealed for showdown
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">
+              🔐 Your cards are encrypted via Arcium MPC
+            </p>
+          )}
         </div>
       )}
     </div>

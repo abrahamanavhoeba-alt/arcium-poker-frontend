@@ -13,10 +13,12 @@ import { PublicKey, Commitment } from '@solana/web3.js';
 
 /**
  * Arcium Poker Program ID (from IDL)
- * Address: FHzVm4eu5ZuuzX3W4YRD8rS6XZVrdXubrJnYTqgBYZu2
+ * Address: Cm5y2aab75vj9dpRcyG1EeZNgeh4GZLRkN3BmmRVNEwZ
+ * Network: Devnet
+ * Deployed: Oct 25, 2025
  */
 export const PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_PROGRAM_ID || 'FHzVm4eu5ZuuzX3W4YRD8rS6XZVrdXubrJnYTqgBYZu2'
+  process.env.NEXT_PUBLIC_PROGRAM_ID || 'Cm5y2aab75vj9dpRcyG1EeZNgeh4GZLRkN3BmmRVNEwZ'
 );
 
 /**
@@ -154,16 +156,27 @@ export const RPC_TIMEOUT_MS = 30000;
 
 /**
  * MPC enabled flag
+ * Note: Dual-mode architecture automatically falls back to mock if MXE accounts not provided
  */
 export const MPC_ENABLED = 
   process.env.NEXT_PUBLIC_MPC_ENABLED === 'true' || false;
 
 /**
- * MPC Program ID (if deployed)
+ * Arcium MXE Program ID (for real MPC computation)
+ * In Arcium's architecture, your Solana program IS the MXE
+ * 
+ * Status: ✅ DEPLOYED on Devnet
+ * - MXE Account initialized: 5ZX1gbRCpPmzMbrNU3s8NTZe1BueYCndbsctQtkurPEKVjpZdoRaRjpHz6gqj5b9n2pfYrPARNzdzUWtvq4YoZET
+ * - Cluster offset: 1078779259 (Arcium devnet cluster)
+ * - Computation definitions: [1] (shuffle_deck circuit)
+ * 
+ * The smart contract has dual-mode support:
+ * - With MXE accounts: Uses real Arcium MPC network ✅ AVAILABLE NOW
+ * - Without MXE accounts: Uses deterministic mock (for testing)
  */
 export const MPC_PROGRAM_ID = process.env.NEXT_PUBLIC_MPC_PROGRAM_ID
   ? new PublicKey(process.env.NEXT_PUBLIC_MPC_PROGRAM_ID)
-  : null;
+  : PROGRAM_ID; // Same as poker program - your program IS the MXE!
 
 /**
  * MPC callback URL for receiving computation results

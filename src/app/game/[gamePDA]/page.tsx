@@ -11,6 +11,7 @@ import { useShowdown } from '@/hooks/useShowdown';
 import { PlayerActionButtons } from '@/components/game/PlayerActionButtons';
 import { PlayerHoleCards } from '@/components/game/PlayerHoleCards';
 import { WinnerDisplay } from '@/components/game/WinnerDisplay';
+import { DeckManager } from '@/lib/cards/deck';
 
 export default function GamePage() {
   const params = useParams();
@@ -136,6 +137,9 @@ export default function GamePage() {
     
     if (result.success) {
       alert('Game started! 🎉 Let the poker begin!');
+      // Wait a bit for blockchain state to finalize before refreshing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await refreshGame();
       window.location.reload();
     } else {
       alert(`Failed to start game: ${result.error}`);
@@ -330,6 +334,7 @@ export default function GamePage() {
           <PlayerHoleCards
             playerState={players.find((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58())?.account}
             isCurrentUser={true}
+            showRevealed={game?.stage?.showdown || game?.stage?.finished}
           />
         )}
 
@@ -416,17 +421,21 @@ export default function GamePage() {
               Community Cards
             </h2>
             <div className="flex items-center justify-center gap-3 py-6">
-              {game?.communityCards && game.communityCards.slice(0, game.communityCardsRevealed || 0).map((card: number, index: number) => (
-                <div
-                  key={index}
-                  className="w-16 h-24 bg-white rounded-lg border-2 border-gray-300 flex items-center justify-center shadow-lg"
-                >
-                  <span className="text-2xl font-bold text-gray-800">
-                    {card === 0 ? '?' : card}
-                  </span>
-                </div>
-              ))}
-              {(!game?.communityCardsRevealed || game.communityCardsRevealed === 0) && (
+              {game?.communityCards && game.communityCardsRevealed > 0 ? (
+                game.communityCards.slice(0, game.communityCardsRevealed).map((cardIndex: number, index: number) => {
+                  const cardInfo = DeckManager.getCardInfoFromIndex(cardIndex);
+                  return (
+                    <div
+                      key={index}
+                      className="w-16 h-24 bg-white rounded-lg border-2 border-gray-300 flex items-center justify-center shadow-lg"
+                    >
+                      <span className={`text-2xl font-bold ${cardInfo.color === 'red' ? 'text-red-500' : 'text-gray-800'}`}>
+                        {cardInfo.display}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
                 <p className="text-gray-500 text-sm">No cards revealed yet</p>
               )}
             </div>
