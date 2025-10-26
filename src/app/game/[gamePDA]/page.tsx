@@ -39,28 +39,40 @@ export default function GamePage() {
       try {
         setLoading(true);
         console.log('🎮 Fetching game:', gamePDA);
-        
+
         // Initialize program with read-only provider
         const { Connection } = await import('@solana/web3.js');
         const { AnchorProvider, Program } = await import('@coral-xyz/anchor');
         const idl = (await import('@/arcium_poker.json')).default;
-        
+
         const connection = new Connection(
           process.env.NEXT_PUBLIC_RPC_ENDPOINT || 'https://api.devnet.solana.com',
           'confirmed'
         );
-        
+
         const provider = new AnchorProvider(
           connection,
           {} as any,
           { commitment: 'confirmed' }
         );
-        
+
         const program = new Program(idl as any, provider);
-        
-        // Fetch the game account
-        const gameAccount = await program.account.game.fetch(new PublicKey(gamePDA));
-        console.log('✅ Game fetched:', gameAccount);
+
+        // Fetch the game account with retry logic (account may not be propagated yet)
+        let gameAccount;
+        let retries = 5;
+        while (retries > 0) {
+          try {
+            gameAccount = await program.account.game.fetch(new PublicKey(gamePDA));
+            console.log('✅ Game fetched:', gameAccount);
+            break;
+          } catch (err: any) {
+            if (retries === 1) throw err; // Last retry, throw error
+            console.log(`⏳ Waiting for account to propagate... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            retries--;
+          }
+        }
         
         // Fetch all player states for this game
         console.log('👥 Fetching players...');
