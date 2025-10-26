@@ -191,7 +191,7 @@ export function useStartGame() {
       console.log('🔨 Building start game instruction...');
 
       // Build accounts object (MUST be done in one call!)
-      const accounts: any = {
+      const instructionAccounts: any = {
         game: gamePDA,
         authority: wallet.publicKey,
         systemProgram: SystemProgram.programId,
@@ -200,18 +200,18 @@ export function useStartGame() {
       // Add MXE accounts only if using real MPC
       if (mxeAccounts) {
         // Use snake_case to match IDL
-        accounts.mxe_program = mxeAccounts.programId;
-        accounts.mxe_account = mxeAccounts.mxeAccount;
-        accounts.comp_def_account = mxeAccounts.compDefAccount;
-        accounts.mempool_account = mxeAccounts.mempoolAccount;
-        accounts.executing_pool_account = mxeAccounts.executingPoolAccount;
-        accounts.cluster_account = mxeAccounts.clusterAccount;
-        accounts.computation_account = mxeAccounts.computationAccount;
+        instructionAccounts.mxe_program = mxeAccounts.programId;
+        instructionAccounts.mxe_account = mxeAccounts.mxeAccount;
+        instructionAccounts.comp_def_account = mxeAccounts.compDefAccount;
+        instructionAccounts.mempool_account = mxeAccounts.mempoolAccount;
+        instructionAccounts.executing_pool_account = mxeAccounts.executingPoolAccount;
+        instructionAccounts.cluster_account = mxeAccounts.clusterAccount;
+        instructionAccounts.computation_account = mxeAccounts.computationAccount;
       }
 
       const instruction = await program.methods
         .startGame(playerEntropy)
-        .accounts(accounts)
+        .accounts(instructionAccounts)
         .remainingAccounts(remainingAccounts)
         .instruction();
 
