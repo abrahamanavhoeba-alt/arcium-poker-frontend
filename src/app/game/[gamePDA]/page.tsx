@@ -333,6 +333,7 @@ export default function GamePage() {
         {players.some((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58()) && !game?.stage?.waiting && (
           <PlayerHoleCards
             playerState={players.find((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58())?.account}
+            game={game}
             isCurrentUser={true}
             showRevealed={game?.stage?.showdown || game?.stage?.finished}
           />
