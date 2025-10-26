@@ -13,12 +13,13 @@ import { PublicKey, Commitment } from '@solana/web3.js';
 
 /**
  * Arcium Poker Program ID (from IDL)
- * Address: AjN3cVqGwpg2hYTY6Pa8MfDenwp4JW5CS3SzX2NRtzdU
+ * Address: 5yRH1ANsvUw1gBcBudzZbBjV3dAkNXJ37m514e3RsoBn
  * Network: Devnet
- * Deployed: Oct 26, 2025 (Updated with card dealing and winner determination fixes)
+ * Deployed: Oct 26, 2025 (Real MPC Integration - MXE Initialized!)
+ * MXE TX: 2Wx5ULzmRHPTsHhJmVADnmpz4YwELso88xtugsxT57cME4sWMsFaFMXp3QiGDuTpezoEw9D9u44pT9bxEkoUDTkK
  */
 export const PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_PROGRAM_ID || 'AjN3cVqGwpg2hYTY6Pa8MfDenwp4JW5CS3SzX2NRtzdU'
+  process.env.NEXT_PUBLIC_PROGRAM_ID || '5yRH1ANsvUw1gBcBudzZbBjV3dAkNXJ37m514e3RsoBn'
 );
 
 /**

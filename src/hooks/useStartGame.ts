@@ -6,15 +6,15 @@ import bs58 from 'bs58';
 import idl from '@/arcium_poker.json';
 import { PROGRAM_ID, MPC_PROGRAM_ID } from '@/lib/shared/constants';
 
-// Arcium MXE Configuration
-// ✅ MXE DEPLOYED! Your poker program IS the MXE
-// Program: AjN3cVqGwpg2hYTY6Pa8MfDenwp4JW5CS3SzX2NRtzdU (Updated Oct 26, 2025)
-// MXE Init: 5ZX1gbRCpPmzMbrNU3s8NTZe1BueYCndbsctQtkurPEKVjpZdoRaRjpHz6gqj5b9n2pfYrPARNzdzUWtvq4YoZET
-// Cluster: 1078779259 (Arcium devnet)
-// Circuits: [1] shuffle_deck registered
-const MXE_PROGRAM_ID = MPC_PROGRAM_ID?.toBase58() || PROGRAM_ID.toBase58(); // Your program IS the MXE
+// Arcium MXE Configuration - REAL MPC ENABLED! 🚀
+// ✅ Program: 5yRH1ANsvUw1gBcBudzZbBjV3dAkNXJ37m514e3RsoBn
+// ✅ MXE Init TX: 2Wx5ULzmRHPTsHhJmVADnmpz4YwELso88xtugsxT57cME4sWMsFaFMXp3QiGDuTpezoEw9D9u44pT9bxEkoUDTkK
+// ✅ Cluster: 1078779259 (Arcium devnet)
+// ✅ Circuits: shuffle_deck (25 MB), deal_card (1.9 MB), generate_random (1.5 MB), reveal_hole_cards (1.4 MB)
+// ✅ Real MPC: ACTIVE - Cryptographically fair shuffling via Arcium network
+const MXE_PROGRAM_ID = MPC_PROGRAM_ID?.toBase58() || PROGRAM_ID.toBase58();
 const CLUSTER_OFFSET = 1078779259; // Arcium devnet cluster offset
-const USE_REAL_MPC = true; // ✅ SET TO TRUE - MXE is deployed!
+const USE_REAL_MPC = true; // ✅ REAL MPC ENABLED!
 
 export function useStartGame() {
   const { connection } = useConnection();
