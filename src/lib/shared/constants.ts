@@ -164,20 +164,20 @@ export const MPC_ENABLED =
 
 /**
  * Arcium MXE Program ID (for real MPC computation)
- * In Arcium's architecture, your Solana program IS the MXE
- * 
- * Status: ✅ DEPLOYED on Devnet
- * - MXE Account initialized: 5ZX1gbRCpPmzMbrNU3s8NTZe1BueYCndbsctQtkurPEKVjpZdoRaRjpHz6gqj5b9n2pfYrPARNzdzUWtvq4YoZET
+ * This is the official Arcium network program, NOT your poker program!
+ *
+ * Status: ✅ Available on Devnet
+ * - Arcium Network Program: BKck65TgoKRokMjQM3datB9oRwJ8rAj2jxPXvHXUvcL6
  * - Cluster offset: 1078779259 (Arcium devnet cluster)
- * - Computation definitions: [1] (shuffle_deck circuit)
- * 
+ * - MXE Account initialized for your poker program
+ *
  * The smart contract has dual-mode support:
  * - With MXE accounts: Uses real Arcium MPC network ✅ AVAILABLE NOW
  * - Without MXE accounts: Uses deterministic mock (for testing)
  */
 export const MPC_PROGRAM_ID = process.env.NEXT_PUBLIC_MPC_PROGRAM_ID
   ? new PublicKey(process.env.NEXT_PUBLIC_MPC_PROGRAM_ID)
-  : PROGRAM_ID; // Same as poker program - your program IS the MXE!
+  : new PublicKey('BKck65TgoKRokMjQM3datB9oRwJ8rAj2jxPXvHXUvcL6'); // Arcium MXE Program
 
 /**
  * MPC callback URL for receiving computation results
