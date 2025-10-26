@@ -199,14 +199,14 @@ export function useStartGame() {
 
       // Add MXE accounts only if using real MPC
       if (mxeAccounts) {
-        // Use snake_case to match IDL
-        instructionAccounts.mxe_program = mxeAccounts.programId;
-        instructionAccounts.mxe_account = mxeAccounts.mxeAccount;
-        instructionAccounts.comp_def_account = mxeAccounts.compDefAccount;
-        instructionAccounts.mempool_account = mxeAccounts.mempoolAccount;
-        instructionAccounts.executing_pool_account = mxeAccounts.executingPoolAccount;
-        instructionAccounts.cluster_account = mxeAccounts.clusterAccount;
-        instructionAccounts.computation_account = mxeAccounts.computationAccount;
+        // Use camelCase - Anchor converts snake_case IDL to camelCase in TS
+        instructionAccounts.mxeProgram = mxeAccounts.programId;
+        instructionAccounts.mxeAccount = mxeAccounts.mxeAccount;
+        instructionAccounts.compDefAccount = mxeAccounts.compDefAccount;
+        instructionAccounts.mempoolAccount = mxeAccounts.mempoolAccount;
+        instructionAccounts.executingPoolAccount = mxeAccounts.executingPoolAccount;
+        instructionAccounts.clusterAccount = mxeAccounts.clusterAccount;
+        instructionAccounts.computationAccount = mxeAccounts.computationAccount;
       }
 
       const instruction = await program.methods
