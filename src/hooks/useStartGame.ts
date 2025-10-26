@@ -8,7 +8,7 @@ import { PROGRAM_ID, MPC_PROGRAM_ID } from '@/lib/shared/constants';
 
 // Arcium MXE Configuration
 // ✅ MXE DEPLOYED! Your poker program IS the MXE
-// Program: Cm5y2aab75vj9dpRcyG1EeZNgeh4GZLRkN3BmmRVNEwZ
+// Program: AjN3cVqGwpg2hYTY6Pa8MfDenwp4JW5CS3SzX2NRtzdU (Updated Oct 26, 2025)
 // MXE Init: 5ZX1gbRCpPmzMbrNU3s8NTZe1BueYCndbsctQtkurPEKVjpZdoRaRjpHz6gqj5b9n2pfYrPARNzdzUWtvq4YoZET
 // Cluster: 1078779259 (Arcium devnet)
 // Circuits: [1] shuffle_deck registered
