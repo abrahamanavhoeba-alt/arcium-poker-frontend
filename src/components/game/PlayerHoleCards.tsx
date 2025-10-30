@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import { DeckManager } from '@/lib/cards/deck';
 
 interface PlayerHoleCardsProps {
@@ -74,21 +75,31 @@ export function PlayerHoleCards({ playerState, game, isCurrentUser, showRevealed
   console.log('🎴 Card 2 Info:', card2Info);
 
   return (
-    <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
-      <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-        <span>🎴</span>
-        Your Hole Cards
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-[#00ff88]/30 rounded-2xl p-6 mb-6 shadow-xl"
+    >
+      <h2 className="text-lg font-bold text-white mb-4 flex items-center justify-center gap-2">
+        <span className="text-2xl">🎴</span>
+        <span>Your Hole Cards</span>
       </h2>
-      
-      <div className="flex items-center justify-center gap-4 py-6">
+
+      <div className="flex items-center justify-center gap-6 py-6">
         {hasCards ? (
           <>
             {/* Card 1 - Always visible to you! */}
-            <div className="relative">
-              <div className="w-20 h-28 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center shadow-lg">
+            <motion.div
+              initial={{ rotateY: 180, x: -50, opacity: 0 }}
+              animate={{ rotateY: 0, x: 0, opacity: 1 }}
+              transition={{ type: "spring", delay: 0.2, stiffness: 200 }}
+              whileHover={{ scale: 1.05, y: -10 }}
+              className="relative"
+            >
+              <div className="w-24 h-32 bg-white border-2 border-gray-300 rounded-xl flex items-center justify-center shadow-2xl">
                 <div className="text-center">
                   {card1Info ? (
-                    <div className={`text-3xl font-bold ${card1Info.color === 'red' ? 'text-red-500' : 'text-black'}`}>
+                    <div className={`text-4xl font-bold ${card1Info.color === 'red' ? 'text-red-500' : 'text-black'}`}>
                       {card1Info.display}
                     </div>
                   ) : (
@@ -96,17 +107,28 @@ export function PlayerHoleCards({ playerState, game, isCurrentUser, showRevealed
                   )}
                 </div>
               </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#00ff88] rounded-full flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.5, type: "spring" }}
+                className="absolute -top-2 -right-2 w-7 h-7 bg-[#00ff88] rounded-full flex items-center justify-center shadow-lg"
+              >
                 <span className="text-black text-xs font-bold">✓</span>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
             {/* Card 2 - Always visible to you! */}
-            <div className="relative">
-              <div className="w-20 h-28 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center shadow-lg">
+            <motion.div
+              initial={{ rotateY: 180, x: 50, opacity: 0 }}
+              animate={{ rotateY: 0, x: 0, opacity: 1 }}
+              transition={{ type: "spring", delay: 0.4, stiffness: 200 }}
+              whileHover={{ scale: 1.05, y: -10 }}
+              className="relative"
+            >
+              <div className="w-24 h-32 bg-white border-2 border-gray-300 rounded-xl flex items-center justify-center shadow-2xl">
                 <div className="text-center">
                   {card2Info ? (
-                    <div className={`text-3xl font-bold ${card2Info.color === 'red' ? 'text-red-500' : 'text-black'}`}>
+                    <div className={`text-4xl font-bold ${card2Info.color === 'red' ? 'text-red-500' : 'text-black'}`}>
                       {card2Info.display}
                     </div>
                   ) : (
@@ -114,28 +136,49 @@ export function PlayerHoleCards({ playerState, game, isCurrentUser, showRevealed
                   )}
                 </div>
               </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#00ff88] rounded-full flex items-center justify-center">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.7, type: "spring" }}
+                className="absolute -top-2 -right-2 w-7 h-7 bg-[#00ff88] rounded-full flex items-center justify-center shadow-lg"
+              >
                 <span className="text-black text-xs font-bold">✓</span>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </>
         ) : (
-          <p className="text-gray-500 text-sm">No cards dealt yet</p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-gray-400 text-sm"
+          >
+            No cards dealt yet
+          </motion.p>
         )}
       </div>
 
       {hasCards && (
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            🎴 Your hole cards (visible only to you)
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="text-center"
+        >
+          <p className="text-xs text-gray-400">
+            🔒 Your hole cards (visible only to you)
           </p>
           {showRevealed && (
-            <p className="text-xs text-yellow-500 mt-1">
+            <motion.p
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring" }}
+              className="text-xs text-yellow-400 mt-2 font-bold"
+            >
               🏆 Showdown - All cards revealed!
-            </p>
+            </motion.p>
           )}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

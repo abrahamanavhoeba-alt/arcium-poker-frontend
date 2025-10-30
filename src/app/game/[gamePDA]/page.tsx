@@ -9,8 +9,10 @@ import { useStartGame } from '@/hooks/useStartGame';
 import { useAdvanceStage } from '@/hooks/useAdvanceStage';
 import { useShowdown } from '@/hooks/useShowdown';
 import { PlayerActionButtons } from '@/components/game/PlayerActionButtons';
+import { PlayerActionPanel } from '@/components/game/PlayerActionPanel';
 import { PlayerHoleCards } from '@/components/game/PlayerHoleCards';
 import { WinnerDisplay } from '@/components/game/WinnerDisplay';
+import { PokerTable } from '@/components/game/PokerTable';
 import { DeckManager } from '@/lib/cards/deck';
 
 export default function GamePage() {
@@ -254,26 +256,18 @@ export default function GamePage() {
           </p>
         </div>
 
-        {/* Game Status Banner */}
-        {game?.stage && !game.stage.waiting && (
-          <div className="bg-gradient-to-r from-[#00ff88]/20 to-purple-500/20 border border-[#00ff88]/30 rounded-xl p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-[#00ff88] rounded-full animate-pulse"></div>
-                <div>
-                  <h3 className="text-lg font-bold text-white">Game In Progress</h3>
-                  <p className="text-sm text-gray-400">
-                    Stage: {Object.keys(game.stage)[0].replace(/([A-Z])/g, ' $1').trim()}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-400">Current Pot</p>
-                <p className="text-2xl font-bold text-[#00ff88]">
-                  {(game?.pot?.toNumber() || 0) / 1e9} SOL
-                </p>
-              </div>
-            </div>
+        {/* Poker Table - Main Game Display */}
+        {players.length > 0 && (
+          <div className="mb-8">
+            <PokerTable
+              game={game}
+              players={players}
+              currentUserPublicKey={wallet.publicKey?.toBase58()}
+              isMyTurn={(() => {
+                const currentPlayer = players.find((p: any) => p.account.player.toBase58() === wallet.publicKey?.toBase58());
+                return !game?.stage?.waiting && game?.currentPlayerIndex === currentPlayer?.account.seatIndex;
+              })()}
+            />
           </div>
         )}
 
@@ -433,126 +427,9 @@ export default function GamePage() {
           </div>
         )}
 
-        {/* Community Cards (if game started) */}
-        {!game?.stage?.waiting && (
-          <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <span>🃏</span>
-              Community Cards
-            </h2>
-            <div className="flex items-center justify-center gap-3 py-6">
-              {game?.communityCards && game.communityCardsRevealed > 0 ? (
-                game.communityCards.slice(0, game.communityCardsRevealed).map((cardIndex: number, index: number) => {
-                  const cardInfo = DeckManager.getCardInfoFromIndex(cardIndex);
-                  return (
-                    <div
-                      key={index}
-                      className="w-16 h-24 bg-white rounded-lg border-2 border-gray-300 flex items-center justify-center shadow-lg"
-                    >
-                      <span className={`text-2xl font-bold ${cardInfo.color === 'red' ? 'text-red-500' : 'text-gray-800'}`}>
-                        {cardInfo.display}
-                      </span>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-gray-500 text-sm">No cards revealed yet</p>
-              )}
-            </div>
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-              <span className={game?.communityCardsRevealed >= 3 ? 'text-[#00ff88]' : ''}>Flop (3)</span>
-              <span>•</span>
-              <span className={game?.communityCardsRevealed >= 4 ? 'text-[#00ff88]' : ''}>Turn (4)</span>
-              <span>•</span>
-              <span className={game?.communityCardsRevealed === 5 ? 'text-[#00ff88]' : ''}>River (5)</span>
-            </div>
-          </div>
-        )}
-
-        {/* Players List */}
-        <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
-          <h2 className="text-lg font-bold text-white mb-4">
-            Players ({players.length}/{game?.maxPlayers || 0})
-          </h2>
-          
-          {players.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No players yet. Be the first to join!</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {players.map((playerData: any, index: number) => {
-                const player = playerData.account;
-                const isCurrentUser = wallet.publicKey?.toBase58() === player.player.toBase58();
-                const isCurrentTurn = !game?.stage?.waiting && game?.currentPlayerIndex === player.seatIndex;
-                
-                return (
-                  <div
-                    key={playerData.publicKey.toBase58()}
-                    className={`flex items-center justify-between p-4 rounded-lg border transition ${
-                      isCurrentTurn
-                        ? 'bg-[#00ff88]/20 border-[#00ff88] ring-2 ring-[#00ff88]/50'
-                        : isCurrentUser
-                        ? 'bg-[#00ff88]/10 border-[#00ff88]/30'
-                        : 'bg-[#0a0b0d] border-gray-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                        isCurrentUser ? 'bg-[#00ff88] text-black' : 'bg-gray-700 text-white'
-                      }`}>
-                        {index + 1}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-white font-medium">
-                            {player.player.toBase58().slice(0, 4)}...{player.player.toBase58().slice(-4)}
-                          </p>
-                          {isCurrentUser && (
-                            <span className="text-xs bg-[#00ff88] text-black px-2 py-0.5 rounded font-bold">
-                              YOU
-                            </span>
-                          )}
-                          {isCurrentTurn && (
-                            <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded font-bold animate-pulse">
-                              TURN
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-gray-500 text-sm">
-                          Seat {player.seatIndex !== null ? player.seatIndex + 1 : 'TBD'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-white font-bold">
-                        {(player.chipStack?.toNumber() || 0) / 1e9} SOL
-                      </p>
-                      <p className="text-gray-500 text-xs">Chips</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Arcium MPC Badge */}
-        {game?.deck_initialized && (
-          <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 border-2 border-purple-500 rounded-xl p-4 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="bg-purple-600 p-2 rounded-lg">
-                🔐
-              </div>
-              <div>
-                <div className="font-bold text-white">Secured by Arcium MPC</div>
-                <div className="text-sm text-gray-400">
-                  Deck shuffled using multi-party computation
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Community Cards - Now displayed on the poker table */}
+        {/* Players List - Now displayed on the poker table */}
+        {/* Arcium MPC Badge - Now displayed on the poker table */}
 
         {/* Game Info */}
         <div className="bg-[#1a1b1f] border border-gray-800 rounded-xl p-6 mb-6">
@@ -590,10 +467,10 @@ export default function GamePage() {
               const isMyTurn = !game?.stage?.waiting && game?.currentPlayerIndex === currentPlayer?.account.seatIndex;
               const gameIsPlaying = !game?.stage?.waiting && !game?.stage?.finished;
 
-              // If game is playing and it's the player's turn, show action buttons
+              // If game is playing and it's the player's turn, show action panel
               if (gameIsPlaying && isMyTurn) {
                 return (
-                  <PlayerActionButtons
+                  <PlayerActionPanel
                     gamePDA={gamePDA}
                     game={game}
                     playerState={currentPlayer?.account}
