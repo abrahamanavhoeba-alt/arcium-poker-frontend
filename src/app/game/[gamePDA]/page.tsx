@@ -145,7 +145,14 @@ export default function GamePage() {
       return;
     }
 
-    const result = await startGame(new PublicKey(gamePDA));
+    // Extract gameId from game account (it's a BN, convert to number)
+    const gameId = game?.gameId?.toNumber();
+    if (gameId === undefined) {
+      alert('Failed to get game ID');
+      return;
+    }
+
+    const result = await startGame(new PublicKey(gamePDA), gameId);
     
     if (result.success) {
       alert('Game started! 🎉 Let the poker begin!');

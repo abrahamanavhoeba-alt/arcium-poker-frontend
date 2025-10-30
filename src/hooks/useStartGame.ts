@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { PublicKey, SystemProgram, Transaction, SYSVAR_CLOCK_PUBKEY } from '@solana/web3.js';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import bs58 from 'bs58';
 import idl from '@/arcium_poker.json';
-import { PROGRAM_ID, MPC_PROGRAM_ID } from '@/lib/shared/constants';
+import { PROGRAM_ID } from '@/lib/shared/constants';
+import { getMXEAccountsForGame } from './useArciumMXE';
 
-// Arcium MXE Configuration - REAL MPC ENABLED! 🚀
-// ✅ Program: 5yRH1ANsvUw1gBcBudzZbBjV3dAkNXJ37m514e3RsoBn
-// ✅ MXE Init TX: 2Wx5ULzmRHPTsHhJmVADnmpz4YwELso88xtugsxT57cME4sWMsFaFMXp3QiGDuTpezoEw9D9u44pT9bxEkoUDTkK
-// ✅ Cluster: 1078779259 (Arcium devnet)
-// ✅ Circuits: shuffle_deck (25 MB), deal_card (1.9 MB), generate_random (1.5 MB), reveal_hole_cards (1.4 MB)
-// ✅ Real MPC: ACTIVE - Cryptographically fair shuffling via Arcium network
-const MXE_PROGRAM_ID = MPC_PROGRAM_ID?.toBase58() || PROGRAM_ID.toBase58();
-const CLUSTER_OFFSET = 1078779259; // Arcium devnet cluster offset
-const USE_REAL_MPC = true; // ✅ REAL MPC ENABLED!
+// MOCK MODE ENABLED - Deterministic Shuffling for Testing
+// ✅ Program: B5E1V3DJsjMPzQb4QyMUuVhESqnWMXVcead4AEBvJB4W
+// ✅ Network: Devnet
+// ✅ Mode: MOCK (Deterministic shuffle - perfect for development and testing)
+//
+// How mock mode works:
+// 1. We provide REAL MXE account addresses (that exist on-chain)
+// 2. The smart contract detects circuits aren't uploaded/configured
+// 3. It automatically falls back to deterministic Fisher-Yates shuffling
+// This allows full game testing without requiring Arcium MPC circuits to be uploaded.
 
 export function useStartGame() {
   const { connection } = useConnection();
@@ -22,7 +24,7 @@ export function useStartGame() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const startGame = async (gamePDA: PublicKey) => {
+  const startGame = async (gamePDA: PublicKey, gameId: number) => {
     try {
       if (!wallet.publicKey || !wallet.signTransaction) {
         throw new Error('Wallet not connected');
@@ -31,10 +33,11 @@ export function useStartGame() {
       setLoading(true);
       setError(null);
 
-      console.log('🎮 ========== START GAME ==========');
+      console.log('🎮 ========== START GAME (MOCK MODE) ==========');
       console.log('📝 Game PDA:', gamePDA.toBase58());
+      console.log('🎲 Game ID:', gameId);
       console.log('👛 Authority:', wallet.publicKey.toBase58());
-      console.log('🔐 Mode:', USE_REAL_MPC && MXE_PROGRAM_ID ? 'REAL Arcium MPC' : 'Mock Mode (Testing)');
+      console.log('🔐 Mode: MOCK (Deterministic Shuffle)');
 
       // Create provider
       const provider = new AnchorProvider(
@@ -49,9 +52,6 @@ export function useStartGame() {
 
       // Fetch all player states for this game using getProgramAccounts
       console.log('👥 Fetching player states...');
-      
-      // PlayerState PDA seed is ["player", game, player]
-      const playerSeed = Buffer.from('player');
       
       // Get all accounts that are PlayerStates for this game
       // PlayerState discriminator from IDL: [56, 3, 60, 86, 174, 16, 244, 195]
@@ -114,100 +114,35 @@ export function useStartGame() {
 
       console.log(`🎲 Generated entropy for ${playerEntropy.length} player(s)`);
 
-      // Generate computation offset (unique ID for this shuffle)
-      const computationOffset = new Uint8Array(8);
-      crypto.getRandomValues(computationOffset);
+      // Build start game instruction (MOCK MODE - real MXE accounts without circuits)
+      console.log('🔨 Building start game instruction for MOCK mode...');
+      console.log('⚠️  Using real MXE accounts (without circuits) - program will fall back to mock shuffle');
 
-      // Derive MXE accounts (only if using real MPC)
-      let mxeAccounts: any = null;
-      
-      if (USE_REAL_MPC && MXE_PROGRAM_ID) {
-        const programId = new PublicKey(MXE_PROGRAM_ID);
+      // Get the real MXE account addresses (they exist but circuits aren't uploaded)
+      // The smart contract will detect this and use mock mode
+      const mxeAccounts = getMXEAccountsForGame(gameId);
 
-        // MXE account PDA: ["mxe", program_id]
-        const [mxeAccount] = await PublicKey.findProgramAddress(
-          [Buffer.from("mxe"), programId.toBuffer()],
-          programId
-        );
+      console.log('🔐 MXE Accounts:');
+      console.log('  MXE Program:', mxeAccounts.mxeProgram.toBase58());
+      console.log('  MXE Account:', mxeAccounts.mxeAccount.toBase58());
+      console.log('  Comp Def:', mxeAccounts.compDef.toBase58());
 
-        // Computation definition PDA: ["comp_def", program_id, comp_def_offset]
-        const compDefOffset = Buffer.alloc(4);
-        compDefOffset.writeUInt32LE(1, 0); // shuffle = 1
-        const [compDefAccount] = await PublicKey.findProgramAddress(
-          [Buffer.from("comp_def"), programId.toBuffer(), compDefOffset],
-          programId
-        );
-
-        // Mempool account PDA: ["mempool", program_id]
-        const [mempoolAccount] = await PublicKey.findProgramAddress(
-          [Buffer.from("mempool"), programId.toBuffer()],
-          programId
-        );
-
-        // Executing pool PDA: ["executing_pool", program_id]
-        const [executingPoolAccount] = await PublicKey.findProgramAddress(
-          [Buffer.from("executing_pool"), programId.toBuffer()],
-          programId
-        );
-
-        // Computation account PDA: ["computation", program_id, computation_offset]
-        const [computationAccount] = await PublicKey.findProgramAddress(
-          [Buffer.from("computation"), programId.toBuffer(), computationOffset],
-          programId
-        );
-
-        // Cluster account - this is on Arcium network, not a PDA
-        // We'll use the cluster offset to derive it
-        const clusterOffset = Buffer.alloc(8);
-        clusterOffset.writeBigUInt64LE(BigInt(CLUSTER_OFFSET), 0);
-        const [clusterAccount] = await PublicKey.findProgramAddress(
-          [Buffer.from("cluster"), clusterOffset],
-          programId
-        );
-
-        mxeAccounts = {
-          programId,
-          mxeAccount,
-          compDefAccount,
-          mempoolAccount,
-          executingPoolAccount,
-          computationAccount,
-          clusterAccount,
-        };
-
-        console.log('🔐 MXE Accounts (REAL MPC):');
-        console.log('  MXE Program:', programId.toBase58());
-        console.log('  MXE Account:', mxeAccount.toBase58());
-        console.log('  Comp Def:', compDefAccount.toBase58());
-        console.log('  Mempool:', mempoolAccount.toBase58());
-        console.log('  Exec Pool:', executingPoolAccount.toBase58());
-        console.log('  Computation:', computationAccount.toBase58());
-        console.log('  Cluster:', clusterAccount.toBase58());
-      } else {
-        console.log('🔐 Using Mock Mode (no MXE accounts - deterministic shuffle)');
-      }
-
-      // Build start game instruction
-      console.log('🔨 Building start game instruction...');
-
-      // Build accounts object (MUST be done in one call!)
-      const instructionAccounts: any = {
+      const instructionAccounts = {
         game: gamePDA,
         authority: wallet.publicKey,
+        // Real MXE accounts (exist but circuits not uploaded = mock mode)
+        mxeProgram: mxeAccounts.mxeProgram,
+        mxeAccount: mxeAccounts.mxeAccount,
+        compDefAccount: mxeAccounts.compDef,
+        mempoolAccount: mxeAccounts.mempool,
+        executingPoolAccount: mxeAccounts.executingPool,
+        clusterAccount: mxeAccounts.cluster,
+        computationAccount: mxeAccounts.computationAccount,
+        signSeed: mxeAccounts.signSeed,
+        stakingPool: mxeAccounts.stakingPool,
         systemProgram: SystemProgram.programId,
+        clock: SYSVAR_CLOCK_PUBKEY,
       };
-
-      // Add MXE accounts only if using real MPC
-      if (mxeAccounts) {
-        // Use camelCase - Anchor converts snake_case IDL to camelCase in TS
-        instructionAccounts.mxeProgram = mxeAccounts.programId;
-        instructionAccounts.mxeAccount = mxeAccounts.mxeAccount;
-        instructionAccounts.compDefAccount = mxeAccounts.compDefAccount;
-        instructionAccounts.mempoolAccount = mxeAccounts.mempoolAccount;
-        instructionAccounts.executingPoolAccount = mxeAccounts.executingPoolAccount;
-        instructionAccounts.clusterAccount = mxeAccounts.clusterAccount;
-        instructionAccounts.computationAccount = mxeAccounts.computationAccount;
-      }
 
       const instruction = await program.methods
         .startGame(playerEntropy)
@@ -235,23 +170,28 @@ export function useStartGame() {
       });
 
       console.log('✅ Transaction sent:', signature);
-      console.log('🎉 Game started with REAL Arcium MPC!');
+      console.log('🎉 Game started with MOCK mode (deterministic shuffle)!');
 
       // Confirm transaction
       console.log('⏳ Confirming transaction...');
-      await connection.confirmTransaction({
+      const confirmation = await connection.confirmTransaction({
         signature,
         blockhash,
         lastValidBlockHeight,
       }, 'confirmed');
 
+      // Check if transaction actually succeeded
+      if (confirmation.value.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+      }
+
       console.log('✅ Transaction confirmed!');
-      console.log('🎉 Game started successfully with Arcium MPC!');
+      console.log('🎉 Game started successfully with MOCK mode!');
 
       return {
         success: true,
         signature,
-        mpcSessionId: computationOffset,
+        gameId,
       };
     } catch (err: any) {
       console.error('❌ Error starting game:', err);
